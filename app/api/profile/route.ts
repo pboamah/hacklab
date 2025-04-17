@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase"
 import { getServerSession } from "@/lib/auth"
 
 export async function PUT(request: Request) {
@@ -10,7 +10,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const supabase = getServerClient()
+    const supabase = createClient()
 
     const { data: profile, error } = await supabase
       .from("profiles")
@@ -37,7 +37,7 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ profile }, { status: 200 })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating profile:", error)
     return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
   }

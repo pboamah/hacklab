@@ -76,7 +76,7 @@ export default function CompleteProfilePage() {
         skills: skills,
         social: social,
         current_job_role: data.currentJobRole,
-        current_workplace: data.currentWorkplace,
+        currentWorkplace: data.currentWorkplace,
         favorite_programming_language: data.favoriteProgrammingLanguage,
         favorite_tech_stack: data.favoriteTechStack,
       }
@@ -213,7 +213,7 @@ export default function CompleteProfilePage() {
                   <FormControl>
                     <Input placeholder="e.g., JavaScript" {...field} />
                   </FormControl>
-                  <FormDescription>Your favorite programming language.</FormMessage>
+                  <FormDescription>Your favorite programming language.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
