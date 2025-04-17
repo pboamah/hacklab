@@ -60,7 +60,6 @@
     "zod": "latest",
     "mobx": "latest",
     "@supabase/supabase-js": "latest",
-    "tailwindcss": "latest",
     "mobx-react-lite": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest"

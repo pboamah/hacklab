@@ -1,6 +1,6 @@
 "use client"
 
-import { observer } from "mobx-react-lite"
+import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, User, LogOut, Settings, MessageSquare, Award } from "lucide-react"
@@ -21,61 +21,38 @@ import { useAuth } from "@/contexts/auth-context"
 import { NotificationCenter } from "@/components/notification-center"
 import { PointsDisplay } from "@/components/gamification/points-display"
 
-export const DashboardHeader = observer(() => {
+interface DashboardHeaderProps {
+  heading: string
+  text: string
+  children?: React.ReactNode
+}
+
+export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ heading, text, children }) => {
   const { user } = useAuth()
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background">
-      <div className="container flex h-16 items-center justify-between py-4">
+    <header className="sticky top-0 z-40 w-full border-b bg-background">
+      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-8">
-          <Link href="/" className="hidden items-center space-x-2 md:flex">
-            <span className="hidden font-bold sm:inline-block">Community Platform</span>
-          </Link>
-          <nav className="hidden gap-6 md:flex">
-            <Link
-              href="/events"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname?.startsWith("/events") ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Events
-            </Link>
-            <Link
-              href="/communities"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname?.startsWith("/communities") ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Communities
-            </Link>
-            <Link
-              href="/resources"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname?.startsWith("/resources") ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Resources
-            </Link>
-            <Link
-              href="/jobs"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname?.startsWith("/jobs") ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Jobs
-            </Link>
-            <Link
-              href="/hackathons"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname?.startsWith("/hackathons") ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Hackathons
-            </Link>
-          </nav>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[240px] sm:w-[300px]">
+              <MobileNav />
+            </SheetContent>
+          </Sheet>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-bold">{heading}</h1>
+            <p className="text-sm text-muted-foreground">{text}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          {children}
           {user ? (
             <>
               <Link href="/gamification">
@@ -142,18 +119,8 @@ export const DashboardHeader = observer(() => {
               </Button>
             </>
           )}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="pr-0">
-              <MobileNav />
-            </SheetContent>
-          </Sheet>
         </div>
       </div>
     </header>
   )
-})
+}
