@@ -1,10 +1,22 @@
+"use client"
+
 import Link from "next/link"
+import { observer } from "mobx-react-lite"
 import { ArrowRight, Calendar, Clock, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useCommunityStore } from "@/lib/store/root-store"
+import { useEffect } from "react"
+import { HeroImageGenerator } from "@/components/ai/hero-image-generator"
 
-export default function Home() {
+const Home = observer(() => {
+  const communityStore = useCommunityStore()
+
+  useEffect(() => {
+    communityStore.fetchCommunities()
+  }, [communityStore])
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -63,13 +75,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex justify-center">
-                <img
-                  src="/placeholder.svg?height=400&width=500"
-                  alt="Community Platform"
-                  className="rounded-lg object-cover"
-                  width={500}
-                  height={400}
-                />
+                <HeroImageGenerator />
               </div>
             </div>
           </div>
@@ -158,4 +164,6 @@ export default function Home() {
       </footer>
     </div>
   )
-}
+})
+
+export default Home

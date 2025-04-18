@@ -147,19 +147,18 @@ export class MessageStore {
     const currentUserId = this.rootStore.userStore.currentUser.id
 
     try {
-      // Get all messages between current user and the selected user
       const { data, error } = await supabase
         .from("messages")
         .select(`
-          id, 
-          content, 
-          created_at, 
-          is_read,
-          sender_id, 
-          sender:sender_id(id, full_name, avatar_url),
-          receiver_id, 
-          receiver:receiver_id(id, full_name, avatar_url)
-        `)
+        id, 
+        content, 
+        created_at, 
+        is_read,
+        sender_id, 
+        sender:users!sender_id(id, full_name, avatar_url),
+        receiver_id, 
+        receiver:receiver_id(id, full_name, avatar_url)
+      `)
         .or(
           `and(sender_id.eq.${currentUserId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUserId})`,
         )

@@ -100,10 +100,10 @@ export class PollStore {
       const { data, error } = await supabase
         .from("polls")
         .select(`
-          *,
-          author:users!author_id(*),
-          options:poll_options(*)
-        `)
+        *,
+        author:users!author_id(*),
+        options:poll_options(*)
+      `)
         .order("created_at", { ascending: false })
 
       if (error) throw error
@@ -144,10 +144,10 @@ export class PollStore {
       const { data, error } = await supabase
         .from("polls")
         .select(`
-          *,
-          author:users!author_id(*),
-          options:poll_options(*)
-        `)
+        *,
+        author:users!author_id(*),
+        options:poll_options(*)
+      `)
         .eq("community_id", communityId)
         .order("created_at", { ascending: false })
 
@@ -189,10 +189,10 @@ export class PollStore {
       const { data, error } = await supabase
         .from("polls")
         .select(`
-          *,
-          author:users!author_id(*),
-          options:poll_options(*)
-        `)
+        *,
+        author:users!author_id(*),
+        options:poll_options(*)
+      `)
         .eq("id", pollId)
         .single()
 
