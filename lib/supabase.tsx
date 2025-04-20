@@ -6,7 +6,6 @@ import { createBrowserClient } from "@supabase/ssr"
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { cookies } from "next/headers"
 import { createClient as createClientAuth } from "@/app/lib/auth"
 
 type SupabaseContext = {
@@ -53,7 +52,6 @@ export function getBrowserClient() {
 }
 
 export function getServerClient() {
-  const cookieStore = cookies()
   return createClientAuth()
 }
 
