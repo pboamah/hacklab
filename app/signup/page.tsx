@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { getBrowserClient } from "@/lib/supabase"
+import { Github } from "lucide-react"
 
 const signupSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -60,6 +61,35 @@ export default function SignupPage() {
           description: "Please check your email to verify your account.",
         })
         //router.push("/complete-profile");
+      }
+    } catch (error) {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGitHubSignIn = async () => {
+    setIsLoading(true)
+    try {
+      const supabase = getBrowserClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (error) {
+        toast({
+          title: "Github signin failed",
+          description: error.message,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       toast({
@@ -126,6 +156,12 @@ export default function SignupPage() {
               </Button>
             </form>
           </Form>
+          <div className="flex items-center justify-center mt-4">
+            <Button variant="outline" type="button" onClick={handleGitHubSignIn} disabled={isLoading}>
+              {isLoading ? "Signing in with Github..." : <Github className="mr-2 h-4 w-4" />}
+              Sign In with GitHub
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

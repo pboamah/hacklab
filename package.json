@@ -63,7 +63,8 @@
     "mobx-react-lite": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest",
-    "jwt-decode": "latest"
+    "jwt-decode": "latest",
+    "@supabase/gotrue-js": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
