@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useCommunityStore } from "@/lib/store/root-store"
 import { useEffect } from "react"
-import { HeroImageGenerator } from "@/app/components/ai/hero-image-generator"
+
 
 const Home = observer(() => {
   const communityStore = useCommunityStore()
@@ -75,7 +75,7 @@ const Home = observer(() => {
                 </div>
               </div>
               <div className="flex justify-center">
-                <HeroImageGenerator />
+               
               </div>
             </div>
           </div>
