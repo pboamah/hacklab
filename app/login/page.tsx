@@ -1,68 +1,67 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import { getBrowserClient } from "@/lib/supabase";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
+import { getBrowserClient } from "@/lib/supabase"
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(8, { message: "Password must be at least 8 characters." }),
-});
+})
 
-type LoginValues = z.infer<typeof loginSchema>;
+type LoginValues = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
-  });
+  })
 
   async function onSubmit(data: LoginValues) {
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const supabase = getBrowserClient();
+      const supabase = getBrowserClient()
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
-      });
+      })
 
       if (error) {
         toast({
           title: "Login failed",
           description: error.message,
           variant: "destructive",
-        });
+        })
       } else {
         toast({
           title: "Login successful",
           description: "You have been logged in successfully.",
-        });
-        router.push("/dashboard");
+        })
+        router.push("/dashboard")
       }
     } catch (error) {
       toast({
         title: "Something went wrong",
         description: "Please try again later.",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -110,5 +109,5 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
