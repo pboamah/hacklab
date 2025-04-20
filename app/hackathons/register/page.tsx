@@ -1,5 +1,7 @@
 "use client"
 
+import { CardFooter } from "@/components/ui/card"
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
@@ -9,7 +11,7 @@ import { observer } from "mobx-react-lite"
 import { Info, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -128,11 +130,15 @@ const HackathonRegistrationPage = observer(() => {
                       <SelectValue placeholder="Select a hackathon" />
                     </SelectTrigger>
                     <SelectContent>
-                      {hackathonStore.upcomingHackathons.map((hackathon) => (
-                        <SelectItem key={hackathon.id} value={hackathon.id}>
-                          {hackathon.name}
-                        </SelectItem>
-                      ))}
+                      {hackathonStore.upcomingHackathons && hackathonStore.upcomingHackathons.length > 0 ? (
+                        hackathonStore.upcomingHackathons.map((hackathon) => (
+                          <SelectItem key={hackathon.id} value={hackathon.id}>
+                            {hackathon.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none">No Hackathons Available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -280,30 +286,32 @@ const HackathonRegistrationPage = observer(() => {
               {selectedHackathon ? (
                 <div className="space-y-2">
                   <h3 className="font-medium">Hackathon Details</h3>
-                  {hackathonStore.upcomingHackathons
-                    .filter((h) => h.id === selectedHackathon)
-                    .map((hackathon) => (
-                      <ul key={hackathon.id} className="space-y-1 text-sm">
-                        <li className="flex justify-between">
-                          <span className="text-muted-foreground">Event:</span>
-                          <span>{hackathon.name}</span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span className="text-muted-foreground">Dates:</span>
-                          <span>
-                            {hackathon.startDate} - {hackathon.endDate}
-                          </span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span className="text-muted-foreground">Location:</span>
-                          <span>{hackathon.location || "Virtual"}</span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span className="text-muted-foreground">Registration Deadline:</span>
-                          <span>{hackathon.registrationDeadline || "TBD"}</span>
-                        </li>
-                      </ul>
-                    ))}
+                  {hackathonStore.upcomingHackathons &&
+                    hackathonStore.upcomingHackathons.length > 0 &&
+                    hackathonStore.upcomingHackathons
+                      .filter((h) => h.id === selectedHackathon)
+                      .map((hackathon) => (
+                        <ul key={hackathon.id} className="space-y-1 text-sm">
+                          <li className="flex justify-between">
+                            <span className="text-muted-foreground">Event:</span>
+                            <span>{hackathon.name}</span>
+                          </li>
+                          <li className="flex justify-between">
+                            <span className="text-muted-foreground">Dates:</span>
+                            <span>
+                              {hackathon.startDate} - {hackathon.endDate}
+                            </span>
+                          </li>
+                          <li className="flex justify-between">
+                            <span className="text-muted-foreground">Location:</span>
+                            <span>{hackathon.location || "Virtual"}</span>
+                          </li>
+                          <li className="flex justify-between">
+                            <span className="text-muted-foreground">Registration Deadline:</span>
+                            <span>{hackathon.registrationDeadline || "TBD"}</span>
+                          </li>
+                        </ul>
+                      ))}
                 </div>
               ) : (
                 <div className="space-y-2">
