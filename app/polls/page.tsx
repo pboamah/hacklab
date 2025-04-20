@@ -1,3 +1,5 @@
+"use client"
+
 import { observer } from "mobx-react-lite"
 import { PollList } from "@/components/poll/poll-list"
 import { DashboardShell } from "@/components/dashboard-shell"
