@@ -8,12 +8,22 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/dashboard"
 
   if (code) {
-    const cookieStore = cookies()
-    const supabase = createClient()
+    try {
+      const cookieStore = cookies()
+      const supabase = createClient()
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      if (!error) {
+        return NextResponse.redirect(`${origin}${next}`)
+      } else {
+        console.error("Error exchanging code for session:", error)
+        // Redirect to an error page with more details
+        return NextResponse.redirect(`${origin}/auth-error?error=${error.message}`)
+      }
+    } catch (error: any) {
+      console.error("Error in auth callback:", error)
+      // Redirect to an error page with more details
+      return NextResponse.redirect(`${origin}/auth-error?error=${error.message}`)
     }
   }
 
