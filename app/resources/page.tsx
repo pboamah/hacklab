@@ -1,7 +1,8 @@
+import { observer } from "mobx-react-lite"
 import { ResourceList } from "@/components/resource/resource-list"
 import { DashboardShell } from "@/components/dashboard-shell"
 
-export default function ResourcesPage() {
+const ResourcesPage = observer(() => {
   return (
     <DashboardShell>
       <div className="container py-10">
@@ -10,4 +11,6 @@ export default function ResourcesPage() {
       </div>
     </DashboardShell>
   )
-}
+})
+
+export default ResourcesPage

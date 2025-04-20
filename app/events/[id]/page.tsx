@@ -1,5 +1,7 @@
 "use client"
 
+import { CardFooter } from "@/components/ui/card"
+
 import { observer } from "mobx-react-lite"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -8,7 +10,7 @@ import { format } from "date-fns"
 import { CalendarDays, MapPin, Users, ArrowLeft, Video } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -179,7 +181,7 @@ const EventPage = observer(({ params }: { params: { id: string } }) => {
                           {isVirtual && (
                             <Button asChild>
                               <Link href={`/events/${event.id}/virtual`}>
-                                <Video className="h-4 w-4 mr-2" />
+                                <Video className="mr-2 h-4 w-4" />
                                 Join Virtual Event
                               </Link>
                             </Button>

@@ -1,7 +1,8 @@
+import { observer } from "mobx-react-lite"
 import { GroupList } from "@/components/group/group-list"
 import { DashboardShell } from "@/components/dashboard-shell"
 
-export default function GroupsPage() {
+const GroupsPage = observer(() => {
   return (
     <DashboardShell>
       <div className="container py-10">
@@ -10,4 +11,6 @@ export default function GroupsPage() {
       </div>
     </DashboardShell>
   )
-}
+})
+
+export default GroupsPage

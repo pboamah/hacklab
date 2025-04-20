@@ -1,7 +1,8 @@
+import { observer } from "mobx-react-lite"
 import { PollList } from "@/components/poll/poll-list"
 import { DashboardShell } from "@/components/dashboard-shell"
 
-export default function PollsPage() {
+const PollsPage = observer(() => {
   return (
     <DashboardShell>
       <div className="container py-10">
@@ -10,4 +11,6 @@ export default function PollsPage() {
       </div>
     </DashboardShell>
   )
-}
+})
+
+export default PollsPage
