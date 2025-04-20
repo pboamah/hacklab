@@ -1,325 +1,263 @@
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase"
-import type { RootStore } from "./root-store"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "../../types/supabase"
 
-export interface Job {
+interface Job {
   id: string
   title: string
   company: string
-  company_id: string
-  location: string
-  type: string
-  experience_level: string
   description: string
-  salary_min?: number
-  salary_max?: number
-  skills: string[]
-  requirements?: string[]
-  benefits?: string[]
+  location: string
+  salary_range: string
+  job_type: string
+  experience_level: string
+  skills_required: string[]
+  posted_by: string
+  status: string
+  application_deadline: string
   created_at: string
   updated_at: string
-  posted_by: string
-  applied?: boolean
-  saved?: boolean
+}
+
+interface JobApplication {
+  id: string
+  job_id: string
+  user_id: string
+  cover_letter: string
+  resume_url: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+interface JobState {
+  jobs: Job[]
+  currentJob: Job | null
+  userApplications: JobApplication[]
+  loading: boolean
+  error: string | null
 }
 
 export class JobStore {
-  jobs: Job[] = []
-  savedJobs: Job[] = []
-  appliedJobs: Job[] = []
-  currentJob: Job | null = null
-  isLoading = false
-  error: string | null = null
-  rootStore: RootStore
+  state: JobState = {
+    jobs: [],
+    currentJob: null,
+    userApplications: [],
+    loading: false,
+    error: null,
+  }
 
-  constructor(rootStore: RootStore) {
-    this.rootStore = rootStore
+  constructor() {
     makeAutoObservable(this)
   }
 
-  // Actions
-  setJobs = (jobs: Job[]) => {
-    this.jobs = jobs
-  }
-
-  setSavedJobs = (jobs: Job[]) => {
-    this.savedJobs = jobs
-  }
-
-  setAppliedJobs = (jobs: Job[]) => {
-    this.appliedJobs = jobs
-  }
-
-  setCurrentJob = (job: Job | null) => {
-    this.currentJob = job
-  }
-
-  setLoading = (loading: boolean) => {
-    this.isLoading = loading
-  }
-
-  setError = (error: string | null) => {
-    this.error = error
-  }
-
-  // Async actions
-  fetchJobs = async () => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
+  // Fetch all jobs
+  async fetchJobs() {
+    this.state.loading = true
+    this.state.error = null
 
     try {
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("jobs").select("*").order("created_at", { ascending: false })
+
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.jobs = data || []
+        }
+        this.state.loading = false
+      })
+    } catch (error) {
+      runInAction(() => {
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
+      })
+    }
+  }
+
+  // Fetch a single job by ID
+  async fetchJobById(id: string) {
+    this.state.loading = true
+    this.state.error = null
+
+    try {
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("jobs").select("*").eq("id", id).single()
+
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.currentJob = data
+        }
+        this.state.loading = false
+      })
+    } catch (error) {
+      runInAction(() => {
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
+      })
+    }
+  }
+
+  // Create a new job
+  async createJob(job: Omit<Job, "id" | "created_at" | "updated_at">) {
+    this.state.loading = true
+    this.state.error = null
+
+    try {
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("jobs").insert([job]).select()
+
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else if (data && data.length > 0) {
+          this.state.jobs = [data[0], ...this.state.jobs]
+          this.state.currentJob = data[0]
+        }
+        this.state.loading = false
+      })
+
+      return { data, error }
+    } catch (error) {
+      runInAction(() => {
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
+      })
+      return { data: null, error }
+    }
+  }
+
+  // Update an existing job
+  async updateJob(id: string, updates: Partial<Job>) {
+    this.state.loading = true
+    this.state.error = null
+
+    try {
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("jobs").update(updates).eq("id", id).select()
+
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else if (data && data.length > 0) {
+          this.state.jobs = this.state.jobs.map((j) => (j.id === id ? { ...j, ...data[0] } : j))
+          if (this.state.currentJob?.id === id) {
+            this.state.currentJob = data[0]
+          }
+        }
+        this.state.loading = false
+      })
+
+      return { data, error }
+    } catch (error) {
+      runInAction(() => {
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
+      })
+      return { data: null, error }
+    }
+  }
+
+  // Delete a job
+  async deleteJob(id: string) {
+    this.state.loading = true
+    this.state.error = null
+
+    try {
+      const supabase = createClientComponentClient<Database>()
+      const { error } = await supabase.from("jobs").delete().eq("id", id)
+
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.jobs = this.state.jobs.filter((j) => j.id !== id)
+          if (this.state.currentJob?.id === id) {
+            this.state.currentJob = null
+          }
+        }
+        this.state.loading = false
+      })
+
+      return { error }
+    } catch (error) {
+      runInAction(() => {
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
+      })
+      return { error }
+    }
+  }
+
+  // Fetch user's job applications
+  async fetchUserApplications(userId: string) {
+    this.state.loading = true
+    this.state.error = null
+
+    try {
+      const supabase = createClientComponentClient<Database>()
       const { data, error } = await supabase
-        .from("jobs")
-        .select(`
-          *,
-          company:companies(*),
-          job_applications(user_id),
-          job_saves(user_id)
-        `)
+        .from("job_applications")
+        .select("*")
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
 
-      if (error) throw error
-
-      // Process jobs
-      const processedJobs = data.map((job) => {
-        const isApplied = job.job_applications
-          ? job.job_applications.some((app: any) => app.user_id === this.rootStore.userStore.currentUser?.id)
-          : false
-
-        const isSaved = job.job_saves
-          ? job.job_saves.some((save: any) => save.user_id === this.rootStore.userStore.currentUser?.id)
-          : false
-
-        return {
-          ...job,
-          applied: isApplied,
-          saved: isSaved,
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.userApplications = data || []
         }
+        this.state.loading = false
       })
-
+    } catch (error) {
       runInAction(() => {
-        this.setJobs(processedJobs)
-        this.setSavedJobs(processedJobs.filter((job) => job.saved))
-        this.setAppliedJobs(processedJobs.filter((job) => job.applied))
-      })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch jobs")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
     }
   }
 
-  fetchJobById = async (id: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
+  // Apply for a job
+  async applyForJob(application: Omit<JobApplication, "id" | "created_at" | "updated_at">) {
+    this.state.loading = true
+    this.state.error = null
 
     try {
-      const { data, error } = await supabase
-        .from("jobs")
-        .select(`
-          *,
-          company:companies(*),
-          job_applications(user_id),
-          job_saves(user_id)
-        `)
-        .eq("id", id)
-        .single()
-
-      if (error) throw error
-
-      // Process the job
-      const isApplied = data.job_applications
-        ? data.job_applications.some((app: any) => app.user_id === this.rootStore.userStore.currentUser?.id)
-        : false
-
-      const isSaved = data.job_saves
-        ? data.job_saves.some((save: any) => save.user_id === this.rootStore.userStore.currentUser?.id)
-        : false
-
-      const processedJob = {
-        ...data,
-        applied: isApplied,
-        saved: isSaved,
-      }
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("job_applications").insert([application]).select()
 
       runInAction(() => {
-        this.setCurrentJob(processedJob)
+        if (error) {
+          this.state.error = error.message
+        } else if (data && data.length > 0) {
+          this.state.userApplications = [data[0], ...this.state.userApplications]
+        }
+        this.state.loading = false
       })
-    } catch (error: any) {
+
+      return { data, error }
+    } catch (error) {
       runInAction(() => {
-        this.setError(error.message || "Failed to fetch job")
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
+      return { data: null, error }
     }
   }
 
-  applyForJob = async (jobId: string) => {
-    if (!this.rootStore.userStore.currentUser) return false
-
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { error } = await supabase.from("job_applications").insert({
-        job_id: jobId,
-        user_id: this.rootStore.userStore.currentUser.id,
-        status: "applied",
-      })
-
-      if (error) throw error
-
-      runInAction(() => {
-        // Update jobs list
-        this.jobs = this.jobs.map((job) => {
-          if (job.id === jobId) {
-            return {
-              ...job,
-              applied: true,
-            }
-          }
-          return job
-        })
-
-        // Add to applied jobs
-        const jobToAdd = this.jobs.find((j) => j.id === jobId)
-        if (jobToAdd && !this.appliedJobs.some((j) => j.id === jobId)) {
-          this.appliedJobs = [...this.appliedJobs, { ...jobToAdd, applied: true }]
-        }
-
-        // Update current job if viewing
-        if (this.currentJob?.id === jobId) {
-          this.currentJob = {
-            ...this.currentJob,
-            applied: true,
-          }
-        }
-      })
-      return true
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to apply for job")
-      })
-      return false
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
+  // Reset current job
+  resetCurrentJob() {
+    this.state.currentJob = null
   }
 
-  saveJob = async (jobId: string) => {
-    if (!this.rootStore.userStore.currentUser) return false
-
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { error } = await supabase.from("job_saves").insert({
-        job_id: jobId,
-        user_id: this.rootStore.userStore.currentUser.id,
-      })
-
-      if (error) throw error
-
-      runInAction(() => {
-        // Update jobs list
-        this.jobs = this.jobs.map((job) => {
-          if (job.id === jobId) {
-            return {
-              ...job,
-              saved: true,
-            }
-          }
-          return job
-        })
-
-        // Add to saved jobs
-        const jobToAdd = this.jobs.find((j) => j.id === jobId)
-        if (jobToAdd && !this.savedJobs.some((j) => j.id === jobId)) {
-          this.savedJobs = [...this.savedJobs, { ...jobToAdd, saved: true }]
-        }
-
-        // Update current job if viewing
-        if (this.currentJob?.id === jobId) {
-          this.currentJob = {
-            ...this.currentJob,
-            saved: true,
-          }
-        }
-      })
-      return true
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to save job")
-      })
-      return false
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  unsaveJob = async (jobId: string) => {
-    if (!this.rootStore.userStore.currentUser) return false
-
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { error } = await supabase
-        .from("job_saves")
-        .delete()
-        .eq("job_id", jobId)
-        .eq("user_id", this.rootStore.userStore.currentUser.id)
-
-      if (error) throw error
-
-      runInAction(() => {
-        // Update jobs list
-        this.jobs = this.jobs.map((job) => {
-          if (job.id === jobId) {
-            return {
-              ...job,
-              saved: false,
-            }
-          }
-          return job
-        })
-
-        // Remove from saved jobs
-        this.savedJobs = this.savedJobs.filter((j) => j.id !== jobId)
-
-        // Update current job if viewing
-        if (this.currentJob?.id === jobId) {
-          this.currentJob = {
-            ...this.currentJob,
-            saved: false,
-          }
-        }
-      })
-      return true
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to unsave job")
-      })
-      return false
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
+  // Reset error
+  resetError() {
+    this.state.error = null
   }
 }
+
+export const jobStore = new JobStore()

@@ -1,174 +1,251 @@
+"use client"
+
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase/client"
-import type { RootStore } from "./root-store"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "../../types/supabase"
 
-export type ReactionType = "like" | "love" | "laugh" | "wow" | "sad" | "angry"
+export type ReactionType = "like" | "love" | "laugh" | "wow" | "angry"
 
-export interface Reaction {
+interface Reaction {
   id: string
   user_id: string
-  post_id: string
-  type: ReactionType
+  content_type: string
+  content_id: string
+  reaction_type: ReactionType
   created_at: string
 }
 
+interface ReactionCount {
+  content_id: string
+  reaction_type: ReactionType
+  count: number
+}
+
+interface ReactionState {
+  reactions: Record<string, Reaction[]>
+  reactionCounts: Record<string, ReactionCount[]>
+  loading: boolean
+  error: string | null
+}
+
 export class ReactionStore {
-  reactions: Map<string, Reaction[]> = new Map() // postId -> reactions
-  isLoading = false
-  error: string | null = null
-  rootStore: RootStore
-
-  constructor(rootStore: RootStore) {
-    this.rootStore = rootStore
-    makeAutoObservable(this, {
-      rootStore: false,
-    })
+  state: ReactionState = {
+    reactions: {},
+    reactionCounts: {},
+    loading: false,
+    error: null,
   }
 
-  // Actions
-  setLoading = (loading: boolean) => {
-    this.isLoading = loading
+  constructor() {
+    makeAutoObservable(this)
   }
 
-  setError = (error: string | null) => {
-    this.error = error
-  }
-
-  setReactions = (postId: string, reactions: Reaction[]) => {
-    this.reactions.set(postId, reactions)
-  }
-
-  // Async actions
-  fetchReactions = async (postId: string) => {
-    this.setLoading(true)
-    this.setError(null)
+  // Fetch reactions for a specific content
+  async fetchReactions(contentType: string, contentId: string) {
+    this.state.loading = true
+    this.state.error = null
 
     try {
-      const supabase = getBrowserClient()
+      const supabase = createClientComponentClient<Database>()
       const { data, error } = await supabase
-        .from("post_reactions")
+        .from("reactions")
         .select("*")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
+        .eq("content_type", contentType)
+        .eq("content_id", contentId)
 
       runInAction(() => {
-        this.setReactions(postId, data || [])
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.reactions[contentId] = data || []
+        }
+        this.state.loading = false
       })
-
-      return data || []
-    } catch (error: any) {
+    } catch (error) {
       runInAction(() => {
-        this.setError(error.message || "Failed to fetch reactions")
-      })
-      return []
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
     }
   }
 
-  addReaction = async (postId: string, type: ReactionType) => {
-    if (!this.rootStore.userStore.currentUser) return null
-
-    this.setLoading(true)
-    this.setError(null)
+  // Fetch reaction counts for a specific content
+  async fetchReactionCounts(contentType: string, contentId: string) {
+    this.state.loading = true
+    this.state.error = null
 
     try {
-      const supabase = getBrowserClient()
-      const userId = this.rootStore.userStore.currentUser.id
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase
+        .from("reactions")
+        .select("reaction_type, count(*)")
+        .eq("content_type", contentType)
+        .eq("content_id", contentId)
+        .group("reaction_type")
 
-      // Check if user already reacted
-      const existingReactions = this.reactions.get(postId) || []
-      const existingReaction = existingReactions.find((r) => r.user_id === userId)
-
-      // If user already reacted with this type, remove the reaction
-      if (existingReaction && existingReaction.type === type) {
-        const { error } = await supabase.from("post_reactions").delete().eq("id", existingReaction.id)
-
-        if (error) throw error
-
-        runInAction(() => {
-          const updatedReactions = existingReactions.filter((r) => r.id !== existingReaction.id)
-          this.setReactions(postId, updatedReactions)
-        })
-
-        return null
-      }
-      // If user already reacted but with different type, update the reaction
-      else if (existingReaction) {
-        const { data, error } = await supabase
-          .from("post_reactions")
-          .update({ type })
-          .eq("id", existingReaction.id)
-          .select()
-          .single()
-
-        if (error) throw error
-
-        runInAction(() => {
-          const updatedReactions = existingReactions.map((r) => (r.id === existingReaction.id ? data : r))
-          this.setReactions(postId, updatedReactions)
-        })
-
-        return data
-      }
-      // If user hasn't reacted yet, add new reaction
-      else {
-        const { data, error } = await supabase
-          .from("post_reactions")
-          .insert({
-            post_id: postId,
-            user_id: userId,
-            type,
-          })
-          .select()
-          .single()
-
-        if (error) throw error
-
-        runInAction(() => {
-          this.setReactions(postId, [...existingReactions, data])
-        })
-
-        return data
-      }
-    } catch (error: any) {
       runInAction(() => {
-        this.setError(error.message || "Failed to add reaction")
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.reactionCounts[contentId] = data.map((item) => ({
+            content_id: contentId,
+            reaction_type: item.reaction_type as ReactionType,
+            count: Number.parseInt(item.count as unknown as string, 10),
+          }))
+        }
+        this.state.loading = false
       })
-      return null
-    } finally {
+    } catch (error) {
       runInAction(() => {
-        this.setLoading(false)
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
     }
   }
 
-  // Computed properties
-  getPostReactions = (postId: string) => {
-    return this.reactions.get(postId) || []
+  // Add a reaction
+  async addReaction(reaction: Omit<Reaction, "id" | "created_at">) {
+    this.state.loading = true
+    this.state.error = null
+
+    try {
+      const supabase = createClientComponentClient<Database>()
+
+      // Check if user already reacted with the same reaction type
+      const { data: existingReaction, error: checkError } = await supabase
+        .from("reactions")
+        .select("*")
+        .eq("content_type", reaction.content_type)
+        .eq("content_id", reaction.content_id)
+        .eq("user_id", reaction.user_id)
+        .eq("reaction_type", reaction.reaction_type)
+        .maybeSingle()
+
+      if (checkError) {
+        throw new Error(checkError.message)
+      }
+
+      // If reaction already exists, remove it (toggle behavior)
+      if (existingReaction) {
+        const { error: deleteError } = await supabase.from("reactions").delete().eq("id", existingReaction.id)
+
+        if (deleteError) {
+          throw new Error(deleteError.message)
+        }
+
+        runInAction(() => {
+          // Update local state
+          const contentReactions = this.state.reactions[reaction.content_id] || []
+          this.state.reactions[reaction.content_id] = contentReactions.filter((r) => r.id !== existingReaction.id)
+
+          // Update counts
+          const contentCounts = this.state.reactionCounts[reaction.content_id] || []
+          const countIndex = contentCounts.findIndex((c) => c.reaction_type === reaction.reaction_type)
+
+          if (countIndex !== -1) {
+            const newCount = contentCounts[countIndex].count - 1
+            if (newCount > 0) {
+              contentCounts[countIndex].count = newCount
+            } else {
+              contentCounts.splice(countIndex, 1)
+            }
+            this.state.reactionCounts[reaction.content_id] = contentCounts
+          }
+        })
+      } else {
+        // Add new reaction
+        const { data, error } = await supabase.from("reactions").insert([reaction]).select()
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        runInAction(() => {
+          // Update local state
+          const contentReactions = this.state.reactions[reaction.content_id] || []
+          this.state.reactions[reaction.content_id] = [...contentReactions, data[0]]
+
+          // Update counts
+          const contentCounts = this.state.reactionCounts[reaction.content_id] || []
+          const countIndex = contentCounts.findIndex((c) => c.reaction_type === reaction.reaction_type)
+
+          if (countIndex !== -1) {
+            contentCounts[countIndex].count += 1
+          } else {
+            contentCounts.push({
+              content_id: reaction.content_id,
+              reaction_type: reaction.reaction_type,
+              count: 1,
+            })
+          }
+          this.state.reactionCounts[reaction.content_id] = contentCounts
+        })
+      }
+
+      this.state.loading = false
+      return { success: true }
+    } catch (error) {
+      runInAction(() => {
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
+      })
+      return { success: false, error }
+    }
   }
 
-  getUserReaction = (postId: string, userId: string) => {
-    const reactions = this.getPostReactions(postId)
-    return reactions.find((r) => r.user_id === userId)
+  // Check if user has reacted with a specific reaction type
+  hasUserReacted(contentId: string, userId: string, reactionType: ReactionType): boolean {
+    const contentReactions = this.state.reactions[contentId] || []
+    return contentReactions.some((r) => r.user_id === userId && r.reaction_type === reactionType)
   }
 
-  getReactionCounts = (postId: string) => {
-    const reactions = this.getPostReactions(postId)
-    return reactions.reduce(
-      (acc, reaction) => {
-        acc[reaction.type] = (acc[reaction.type] || 0) + 1
-        return acc
-      },
-      {} as Record<ReactionType, number>,
-    )
+  // Get reaction count for a specific reaction type
+  getReactionCount(contentId: string, reactionType: ReactionType): number {
+    const contentCounts = this.state.reactionCounts[contentId] || []
+    const count = contentCounts.find((c) => c.reaction_type === reactionType)
+    return count ? count.count : 0
   }
 
-  getTotalReactionCount = (postId: string) => {
-    return this.getPostReactions(postId).length
+  // Get all reactions for a post
+  getPostReactions(postId: string): Reaction[] {
+    return this.state.reactions[postId] || []
+  }
+
+  // Get reaction counts for a post
+  getReactionCounts(postId: string): Record<ReactionType, number> {
+    const counts: Record<ReactionType, number> = {
+      like: 0,
+      love: 0,
+      laugh: 0,
+      wow: 0,
+      angry: 0,
+    }
+
+    const reactionCounts = this.state.reactionCounts[postId] || []
+    reactionCounts.forEach((reaction) => {
+      counts[reaction.reaction_type] = reaction.count
+    })
+
+    return counts
+  }
+
+  // Get total reaction count for a post
+  getTotalReactionCount(postId: string): number {
+    const reactionCounts = this.state.reactionCounts[postId] || []
+    return reactionCounts.reduce((total, reaction) => total + reaction.count, 0)
+  }
+
+  // Get user's reaction to a post
+  getUserReaction(postId: string, userId: string): Reaction | undefined {
+    const reactions = this.state.reactions[postId] || []
+    return reactions.find((reaction) => reaction.user_id === userId)
+  }
+
+  // Reset error
+  resetError() {
+    this.state.error = null
   }
 }
+
+// Export the ReactionStore instance
+export const reactionStore = new ReactionStore()

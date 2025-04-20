@@ -1,92 +1,50 @@
 "use client"
 
-import type React from "react"
-
-import { useSyncExternalStore } from "react"
-import { configure } from "mobx"
+import { createContext, useContext, type ReactNode } from "react"
 import { enableStaticRendering } from "mobx-react-lite"
-import { RootStore } from "./root-store"
+import { isClient } from "../is-client"
+import { headersStore, HeadersStore } from "./headers-store"
+import { hackathonStore, HackathonStore } from "./hackathon-store"
+import { jobStore, JobStore } from "./job-store"
+import { adminStore, AdminStore } from "./admin-store"
+import { reactionStore, ReactionStore } from "./reaction-store"
 
-// Configure MobX
-configure({
-  enforceActions: "observed",
-  computedRequiresReaction: true,
-  reactionRequiresObservable: true,
-  observableRequiresReaction: true,
-  disableErrorBoundaries: false,
-})
+// Enable static rendering in SSR mode
+enableStaticRendering(!isClient)
 
-// Enable static rendering for server-side rendering
-enableStaticRendering(typeof window === "undefined")
-
-// Create a singleton instance of the root store
-let store: RootStore | undefined = undefined
-
-function initializeStore(): RootStore {
-  const _store = store ?? new RootStore()
-
-  // For SSR, always create a new store
-  if (typeof window === "undefined") return _store
-
-  // Create the store once in the client
-  if (!store) store = _store
-
-  return _store
+interface StoreContextValue {
+  headersStore: HeadersStore
+  hackathonStore: HackathonStore
+  jobStore: JobStore
+  adminStore: AdminStore
+  reactionStore: ReactionStore
 }
 
-// Hook to use the store in components
-export function useStore(): RootStore {
-  const store = initializeStore()
-  return useSyncExternalStore(
-    () => (callback: () => void) => {
-      // Subscribe to changes on the store
-      const unsubscribe = () => {}
-      return unsubscribe
-    },
-    () => store,
-  )
+const StoreContext = createContext<StoreContextValue | null>(null)
+
+export function StoreProvider({ children }: { children: ReactNode }) {
+  const stores: StoreContextValue = {
+    headersStore,
+    hackathonStore,
+    jobStore,
+    adminStore,
+    reactionStore,
+  }
+
+  return <StoreContext.Provider value={stores}>{children}</StoreContext.Provider>
 }
 
-// Create hooks for individual stores
-export const useUserStore = () => useStore().userStore
-export const useCommunityStore = () => useStore().communityStore
-export const useEventStore = () => useStore().eventStore
-export const useHackathonStore = () => useStore().hackathonStore
-export const useJobStore = () => useStore().jobStore
-export const usePostStore = () => useStore().postStore
-export const useAdminStore = () => useStore().adminStore
-export const useMessageStore = () => useStore().messageStore
-export const useReactionStore = () => useStore().reactionStore
-export const useBrandingStore = () => useStore().brandingStore
-export const useProfileStore = () => useStore().profileStore
-export const useCommentStore = () => useStore().commentStore
-export const useForumStore = () => useStore().forumStore
-export const useGroupStore = () => useStore().groupStore
-export const useResourceStore = () => useStore().resourceStore
-export const usePollStore = () => useStore().pollStore
-
-export * from "./root-store"
-export * from "./user-store"
-export * from "./community-store"
-export * from "./event-store"
-export * from "./hackathon-store"
-export * from "./job-store"
-export * from "./post-store"
-export * from "./admin-store"
-export * from "./message-store"
-export * from "./reaction-store"
-export * from "./branding-store"
-export * from "./profile-store"
-export * from "./comment-store"
-export * from "./forum-store"
-export * from "./group-store"
-export * from "./resource-store"
-export * from "./poll-store"
-
-interface StoreProviderProps {
-  children: React.ReactNode
+export function useStores() {
+  const context = useContext(StoreContext)
+  if (!context) {
+    throw new Error("useStores must be used within a StoreProvider")
+  }
+  return context
 }
 
-export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
-  return <>{children}</>
-}
+// Export store classes and instances
+export { HeadersStore, headersStore }
+export { HackathonStore, hackathonStore }
+export { JobStore, jobStore }
+export { AdminStore, adminStore }
+export { ReactionStore, reactionStore }

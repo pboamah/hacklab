@@ -1,359 +1,191 @@
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase"
-import type { RootStore } from "./root-store"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "../../types/supabase"
 
-export interface Hackathon {
+interface Hackathon {
   id: string
-  name: string
+  title: string
   description: string
+  event_id: string
   start_date: string
   end_date: string
-  location: string
-  image_url?: string
-  organizer_id: string
-  max_participants?: number
-  prize_pool?: string
-  registration_deadline?: string
+  registration_deadline: string
+  max_team_size: number
+  min_team_size: number
+  status: string
   created_at: string
   updated_at: string
-  hackathon_participants?: any[]
-  organizer?: any
-  status?: "upcoming" | "active" | "past"
-  registered?: boolean
 }
 
-export interface Team {
-  id: string
-  name: string
-  description?: string
-  hackathon_id: string
-  leader_id: string
-  image_url?: string
-  created_at: string
-  updated_at: string
-  team_members?: any[]
-  submission_id?: string
-  status?: "forming" | "complete" | "submitted"
+interface HackathonState {
+  hackathons: Hackathon[]
+  currentHackathon: Hackathon | null
+  loading: boolean
+  error: string | null
 }
 
 export class HackathonStore {
-  hackathons: Hackathon[] = []
-  currentHackathon: Hackathon | null = null
-  teams: Team[] = []
-  currentTeam: Team | null = null
-  isLoading = false
-  error: string | null = null
-  rootStore: RootStore
+  state: HackathonState = {
+    hackathons: [],
+    currentHackathon: null,
+    loading: false,
+    error: null,
+  }
 
-  constructor(rootStore: RootStore) {
-    this.rootStore = rootStore
+  constructor() {
     makeAutoObservable(this)
   }
 
-  // Actions
-  setHackathons = (hackathons: Hackathon[]) => {
-    this.hackathons = hackathons
-  }
-
-  setCurrentHackathon = (hackathon: Hackathon | null) => {
-    this.currentHackathon = hackathon
-  }
-
-  setTeams = (teams: Team[]) => {
-    this.teams = teams
-  }
-
-  setCurrentTeam = (team: Team | null) => {
-    this.currentTeam = team
-  }
-
-  setLoading = (loading: boolean) => {
-    this.isLoading = loading
-  }
-
-  setError = (error: string | null) => {
-    this.error = error
-  }
-
-  // Async actions
-  fetchHackathons = async () => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-    const now = new Date().toISOString()
+  // Fetch all hackathons
+  async fetchHackathons() {
+    this.state.loading = true
+    this.state.error = null
 
     try {
-      const { data, error } = await supabase
-        .from("hackathons")
-        .select(`
-          *,
-          organizer:users!organizer_id(id, full_name, avatar_url),
-          hackathon_participants(user_id)
-        `)
-        .order("start_date", { ascending: true })
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("hackathons").select("*").order("created_at", { ascending: false })
 
-      if (error) throw error
-
-      // Process hackathons
-      const processedHackathons = data.map((hackathon) => {
-        const startDate = new Date(hackathon.start_date)
-        const endDate = new Date(hackathon.end_date)
-        const currentDate = new Date()
-
-        let status: "upcoming" | "active" | "past" = "upcoming"
-        if (currentDate > endDate) {
-          status = "past"
-        } else if (currentDate >= startDate && currentDate <= endDate) {
-          status = "active"
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.hackathons = data || []
         }
-
-        return {
-          ...hackathon,
-          status,
-          registered: hackathon.hackathon_participants
-            ? hackathon.hackathon_participants.some(
-                (participant: any) => participant.user_id === this.rootStore.userStore.currentUser?.id,
-              )
-            : false,
-        }
+        this.state.loading = false
       })
-
+    } catch (error) {
       runInAction(() => {
-        this.setHackathons(processedHackathons)
-      })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch hackathons")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
     }
   }
 
-  fetchHackathonById = async (id: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
+  // Fetch a single hackathon by ID
+  async fetchHackathonById(id: string) {
+    this.state.loading = true
+    this.state.error = null
 
     try {
-      const { data, error } = await supabase
-        .from("hackathons")
-        .select(`
-          *,
-          organizer:users!organizer_id(*),
-          hackathon_participants(*, user:users(*))
-        `)
-        .eq("id", id)
-        .single()
-
-      if (error) throw error
-
-      // Process the hackathon
-      const startDate = new Date(data.start_date)
-      const endDate = new Date(data.end_date)
-      const currentDate = new Date()
-
-      let status: "upcoming" | "active" | "past" = "upcoming"
-      if (currentDate > endDate) {
-        status = "past"
-      } else if (currentDate >= startDate && currentDate <= endDate) {
-        status = "active"
-      }
-
-      const processedHackathon = {
-        ...data,
-        status,
-        registered: data.hackathon_participants
-          ? data.hackathon_participants.some(
-              (participant: any) => participant.user.id === this.rootStore.userStore.currentUser?.id,
-            )
-          : false,
-      }
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("hackathons").select("*").eq("id", id).single()
 
       runInAction(() => {
-        this.setCurrentHackathon(processedHackathon)
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.currentHackathon = data
+        }
+        this.state.loading = false
       })
-    } catch (error: any) {
+    } catch (error) {
       runInAction(() => {
-        this.setError(error.message || "Failed to fetch hackathon")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
     }
   }
 
-  registerForHackathon = async (hackathonId: string) => {
-    if (!this.rootStore.userStore.currentUser) return false
-
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
+  // Create a new hackathon
+  async createHackathon(hackathon: Omit<Hackathon, "id" | "created_at" | "updated_at">) {
+    this.state.loading = true
+    this.state.error = null
 
     try {
-      const { error } = await supabase.from("hackathon_participants").insert({
-        hackathon_id: hackathonId,
-        user_id: this.rootStore.userStore.currentUser.id,
-        status: "registered",
-      })
-
-      if (error) throw error
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("hackathons").insert([hackathon]).select()
 
       runInAction(() => {
-        // Update hackathons list
-        this.hackathons = this.hackathons.map((hackathon) => {
-          if (hackathon.id === hackathonId) {
-            return {
-              ...hackathon,
-              registered: true,
-              hackathon_participants: [
-                ...(hackathon.hackathon_participants || []),
-                { user_id: this.rootStore.userStore.currentUser?.id },
-              ],
-            }
-          }
-          return hackathon
-        })
+        if (error) {
+          this.state.error = error.message
+        } else if (data && data.length > 0) {
+          this.state.hackathons = [data[0], ...this.state.hackathons]
+          this.state.currentHackathon = data[0]
+        }
+        this.state.loading = false
+      })
 
-        // Update current hackathon if viewing
-        if (this.currentHackathon?.id === hackathonId) {
-          this.currentHackathon = {
-            ...this.currentHackathon,
-            registered: true,
-            hackathon_participants: [
-              ...(this.currentHackathon.hackathon_participants || []),
-              { user: this.rootStore.userStore.currentUser, user_id: this.rootStore.userStore.currentUser?.id },
-            ],
+      return { data, error }
+    } catch (error) {
+      runInAction(() => {
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
+      })
+      return { data: null, error }
+    }
+  }
+
+  // Update an existing hackathon
+  async updateHackathon(id: string, updates: Partial<Hackathon>) {
+    this.state.loading = true
+    this.state.error = null
+
+    try {
+      const supabase = createClientComponentClient<Database>()
+      const { data, error } = await supabase.from("hackathons").update(updates).eq("id", id).select()
+
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else if (data && data.length > 0) {
+          this.state.hackathons = this.state.hackathons.map((h) => (h.id === id ? { ...h, ...data[0] } : h))
+          if (this.state.currentHackathon?.id === id) {
+            this.state.currentHackathon = data[0]
           }
         }
+        this.state.loading = false
       })
-      return true
-    } catch (error: any) {
+
+      return { data, error }
+    } catch (error) {
       runInAction(() => {
-        this.setError(error.message || "Failed to register for hackathon")
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
-      return false
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
+      return { data: null, error }
     }
   }
 
-  fetchTeams = async (hackathonId?: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
+  // Delete a hackathon
+  async deleteHackathon(id: string) {
+    this.state.loading = true
+    this.state.error = null
 
     try {
-      let query = supabase.from("hackathon_teams").select(`
-          *,
-          hackathon:hackathons!hackathon_id(name),
-          team_members(*, user:users(*))
-        `)
+      const supabase = createClientComponentClient<Database>()
+      const { error } = await supabase.from("hackathons").delete().eq("id", id)
 
-      if (hackathonId) {
-        query = query.eq("hackathon_id", hackathonId)
-      }
-
-      const { data, error } = await query
-
-      if (error) throw error
-
-      // Process teams
-      const processedTeams = data.map((team) => {
-        const hasSubmission = !!team.submission_id
-        const isComplete = team.team_members.length >= 5
-
-        let status: "forming" | "complete" | "submitted" = "forming"
-        if (hasSubmission) {
-          status = "submitted"
-        } else if (isComplete) {
-          status = "complete"
+      runInAction(() => {
+        if (error) {
+          this.state.error = error.message
+        } else {
+          this.state.hackathons = this.state.hackathons.filter((h) => h.id !== id)
+          if (this.state.currentHackathon?.id === id) {
+            this.state.currentHackathon = null
+          }
         }
-
-        return {
-          ...team,
-          status,
-        }
+        this.state.loading = false
       })
 
+      return { error }
+    } catch (error) {
       runInAction(() => {
-        this.setTeams(processedTeams)
+        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
+        this.state.loading = false
       })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch teams")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
+      return { error }
     }
   }
 
-  createTeam = async (teamData: { name: string; description?: string; hackathonId: string }) => {
-    if (!this.rootStore.userStore.currentUser) return null
+  // Reset current hackathon
+  resetCurrentHackathon() {
+    this.state.currentHackathon = null
+  }
 
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      // Create the team
-      const { data, error } = await supabase
-        .from("hackathon_teams")
-        .insert({
-          name: teamData.name,
-          description: teamData.description,
-          hackathon_id: teamData.hackathonId,
-          leader_id: this.rootStore.userStore.currentUser.id,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Add creator as a team member
-      const { error: memberError } = await supabase.from("team_members").insert({
-        team_id: data.id,
-        user_id: this.rootStore.userStore.currentUser.id,
-        role: "leader",
-      })
-
-      if (memberError) throw memberError
-
-      const newTeam = {
-        ...data,
-        hackathon: { name: this.hackathons.find((h) => h.id === teamData.hackathonId)?.name || "Hackathon" },
-        team_members: [
-          {
-            user: this.rootStore.userStore.currentUser,
-            user_id: this.rootStore.userStore.currentUser.id,
-            role: "leader",
-          },
-        ],
-        status: "forming" as const,
-      }
-
-      runInAction(() => {
-        this.teams = [...this.teams, newTeam]
-        this.setCurrentTeam(newTeam)
-      })
-
-      return newTeam
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to create team")
-      })
-      return null
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
+  // Reset error
+  resetError() {
+    this.state.error = null
   }
 }
+
+export const hackathonStore = new HackathonStore()
