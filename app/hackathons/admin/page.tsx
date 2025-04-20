@@ -320,7 +320,7 @@ export default function HackathonAdminPage() {
                             Edit
                           </Link>
                         </Button>
-                        <Button
+                        {/* <Button
                           variant="outline"
                           size="sm"
                           className="text-red-500 hover:text-red-500"
@@ -329,7 +329,7 @@ export default function HackathonAdminPage() {
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
-                        </Button>
+                        </Button> */}
                       </div>
                     </CollapsibleContent>
                   </CardContent>
