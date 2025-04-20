@@ -1,4 +1,4 @@
-import { makeAutoObservable } from "mobx"
+import { makeObservable, observable, action } from "mobx"
 import { isClient } from "../is-client"
 
 interface HeadersState {
@@ -13,7 +13,15 @@ export class HeadersStore {
   }
 
   constructor() {
-    makeAutoObservable(this)
+    // Use makeObservable instead of makeAutoObservable
+    makeObservable(this, {
+      state: observable,
+      initializeFromServerRequest: action,
+      getHeader: action,
+      getAllHeaders: action,
+      getCookie: action,
+      getAllCookies: action,
+    })
   }
 
   // Initialize headers and cookies on the server side

@@ -1,6 +1,6 @@
 "use client"
 
-import { makeAutoObservable, runInAction } from "mobx"
+import { makeObservable, observable, action, runInAction } from "mobx"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "../../types/supabase"
 
@@ -37,7 +37,19 @@ export class ReactionStore {
   }
 
   constructor() {
-    makeAutoObservable(this)
+    makeObservable(this, {
+      state: observable,
+      fetchReactions: action,
+      fetchReactionCounts: action,
+      addReaction: action,
+      hasUserReacted: action,
+      getReactionCount: action,
+      getPostReactions: action,
+      getReactionCounts: action,
+      getTotalReactionCount: action,
+      getUserReaction: action,
+      resetError: action,
+    })
   }
 
   // Fetch reactions for a specific content

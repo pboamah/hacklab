@@ -1,4 +1,4 @@
-import { makeAutoObservable, runInAction } from "mobx"
+import { makeObservable, observable, action, runInAction } from "mobx"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "../../types/supabase"
 
@@ -56,7 +56,15 @@ export class AdminStore {
   }
 
   constructor() {
-    makeAutoObservable(this)
+    makeObservable(this, {
+      state: observable,
+      fetchUsers: action,
+      fetchReports: action,
+      updateUser: action,
+      updateReport: action,
+      fetchStats: action,
+      resetError: action,
+    })
   }
 
   // Fetch all users

@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(user)
         if (user) {
           await userStore.fetchCurrentUser()
+          localStorage.setItem("sb-user", JSON.stringify(user))
         }
       } catch (error) {
         console.error("Error getting user:", error)
@@ -48,7 +49,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
 
-    getUser()
+    // Load user from local storage on initial load
+    const storedUser = localStorage.getItem("sb-user")
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+      userStore.fetchCurrentUser()
+    } else {
+      getUser()
+    }
 
     const {
       data: { subscription },
@@ -56,7 +64,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user ?? null)
       if (session?.user) {
         await userStore.fetchCurrentUser()
+        localStorage.setItem("sb-user", JSON.stringify(session.user))
       } else {
+        localStorage.removeItem("sb-user")
         userStore.setCurrentUser(null)
       }
     })
@@ -86,6 +96,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    localStorage.removeItem("sb-user")
   }
 
   const resetPassword = async (email: string) => {

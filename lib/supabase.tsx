@@ -1,15 +1,17 @@
 "use client"
 
+import type React from "react"
+
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 import { createBrowserClient } from "@supabase/ssr"
-import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-import type { SupabaseClient } from "@supabase/supabase-js"
-import { createClient as createClientAuth } from "@/app/lib/auth"
+import type { Session } from "@supabase/supabase-js"
 
 type SupabaseContext = {
   supabase: SupabaseClient<Database>
+  session: Session | null
 }
 
 const Context = createContext<SupabaseContext | undefined>(undefined)
@@ -20,20 +22,24 @@ export function SupabaseProvider({
   children: React.ReactNode
 }) {
   const [supabase] = useState(() => createClientComponentClient<Database>())
+  const [session, setSession] = useState<Session | null>(null)
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      // Refresh the page on auth state change to update server components
-    })
-
-    return () => {
-      subscription.unsubscribe()
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setSession(session)
     }
+
+    getSession()
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
   }, [supabase])
 
-  return <Context.Provider value={{ supabase }}>{children}</Context.Provider>
+  return <Context.Provider value={{ supabase, session }}>{children}</Context.Provider>
 }
 
 export const useSupabase = () => {
@@ -52,12 +58,15 @@ export function getBrowserClient() {
 }
 
 export function getServerClient() {
-  return createClientAuth()
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 }
 
 export function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey)
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 }
