@@ -1,3 +1,5 @@
+"use client"
+
 import { observer } from "mobx-react-lite"
 import { GroupList } from "@/components/group/group-list"
 import { DashboardShell } from "@/components/dashboard-shell"
