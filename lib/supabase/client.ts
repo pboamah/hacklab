@@ -1,41 +1,68 @@
 "use client"
-
-import type React from "react"
-
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useEffect } from "react"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 import { createBrowserClient } from "@supabase/ssr"
+import { makeAutoObservable } from "mobx"
+import { observer } from "mobx-react-lite"
 
-type SupabaseContext = {
+// Define the MobX store for Supabase
+class SupabaseStore {
   supabase: SupabaseClient<Database>
+  isLoading: boolean = true
+  isAuthenticated: boolean = false
+
+  constructor() {
+    this.supabase = createClientComponentClient<Database>()
+    makeAutoObservable(this)
+    this.initAuth()
+  }
+
+  async initAuth() {
+    const { data } = await this.supabase.auth.getSession()
+    this.isAuthenticated = !!data.session
+    this.isLoading = false
+  }
+
+  setupAuthListener() {
+    return this.supabase.auth.onAuthStateChange((event) => {
+      this.isAuthenticated = event === "SIGNED_IN"
+    })
+  }
 }
 
-const Context = createContext<SupabaseContext | undefined>(undefined)
+// Create a singleton instance of the store
+const supabaseStore = new SupabaseStore()
 
-export function SupabaseProvider({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const [supabase] = useState(() => createClientComponentClient<Database>())
+// Create the context
+type SupabaseContextType = {
+  store: typeof supabaseStore
+}
 
+const Context = createContext<SupabaseContextType | undefined>(undefined)
+
+// Create the provider component
+export const SupabaseProvider = observer(({ 
+  children 
+}: { 
+  children: React.ReactNode 
+}) => {
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      // Refresh the page on auth state change to update server components
-    })
-
+    const { data: { subscription } } = supabaseStore.setupAuthListener()
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [])
 
-  return <Context.Provider value={{ supabase }}>{children}</Context.Provider>
-}
+  return (
+    <Context.Provider value={{ store: supabaseStore }}>
+      {children}
+    </Context.Provider>
+  )
+})
 
+// Create the hook for consuming the context
 export const useSupabase = () => {
   const context = useContext(Context)
   if (context === undefined) {
@@ -44,9 +71,9 @@ export const useSupabase = () => {
   return context
 }
 
+// Create a browser client function
 export function getBrowserClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
   return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 }
