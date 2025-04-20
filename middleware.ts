@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
     "/hackathons/submit",
     "/hackathons/teams/create",
     "/admin",
-    "/complete-profile", // Added complete-profile to protected routes
+    //"/complete-profile", // Added complete-profile to protected routes
   ]
 
   const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))

@@ -59,7 +59,7 @@ export default function SignupPage() {
           title: "Signup successful",
           description: "Please check your email to verify your account.",
         })
-        router.push("/complete-profile")
+        //router.push("/complete-profile");
       }
     } catch (error) {
       toast({
