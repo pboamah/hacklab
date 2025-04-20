@@ -1,31 +1,30 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import { getBrowserClient } from "@/lib/supabase";
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
+import { getBrowserClient } from "@/lib/supabase"
 
 const signupSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(8, { message: "Password must be at least 8 characters." }),
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-});
+})
 
-type SignupValues = z.infer<typeof signupSchema>;
+type SignupValues = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
   const form = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
@@ -33,12 +32,12 @@ export default function SignupPage() {
       password: "",
       fullName: "",
     },
-  });
+  })
 
   async function onSubmit(data: SignupValues) {
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const supabase = getBrowserClient();
+      const supabase = getBrowserClient()
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -47,29 +46,29 @@ export default function SignupPage() {
             full_name: data.fullName,
           },
         },
-      });
+      })
 
       if (error) {
         toast({
           title: "Signup failed",
           description: error.message,
           variant: "destructive",
-        });
+        })
       } else {
         toast({
           title: "Signup successful",
           description: "Please check your email to verify your account.",
-        });
-        router.push("/complete-profile");
+        })
+        router.push("/complete-profile")
       }
     } catch (error) {
       toast({
         title: "Something went wrong",
         description: "Please try again later.",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -130,5 +129,5 @@ export default function SignupPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
