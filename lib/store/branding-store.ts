@@ -1,19 +1,28 @@
-import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase/client"
-import type { RootStore } from "./root-store"
+import { makeAutoObservable } from "mobx"
+import type { RootStore } from "./index"
 
 export interface BrandingSettings {
-  primary_color?: string
-  secondary_color?: string
-  logo_url?: string
-  banner_url?: string
-  custom_domain?: string
-  custom_css?: string
-  favicon_url?: string
+  primaryColor: string
+  secondaryColor: string
+  logoUrl: string | null
+  faviconUrl: string | null
+  siteName: string
+  siteDescription: string
+  customCss: string | null
+  customJs: string | null
 }
 
 export class BrandingStore {
-  brandingSettings: Map<string, BrandingSettings> = new Map() // communityId -> settings
+  settings: BrandingSettings = {
+    primaryColor: "#3b82f6",
+    secondaryColor: "#10b981",
+    logoUrl: null,
+    faviconUrl: null,
+    siteName: "Hacklab Connect",
+    siteDescription: "A community platform for hackathons and tech events",
+    customCss: null,
+    customJs: null,
+  }
   isLoading = false
   error: string | null = null
   rootStore: RootStore
@@ -26,6 +35,10 @@ export class BrandingStore {
   }
 
   // Actions
+  setSettings = (settings: Partial<BrandingSettings>) => {
+    this.settings = { ...this.settings, ...settings }
+  }
+
   setLoading = (loading: boolean) => {
     this.isLoading = loading
   }
@@ -34,116 +47,42 @@ export class BrandingStore {
     this.error = error
   }
 
-  setBrandingSettings = (communityId: string, settings: BrandingSettings) => {
-    this.brandingSettings.set(communityId, settings)
-  }
-
   // Async actions
-  fetchBrandingSettings = async (communityId: string) => {
+  fetchBrandingSettings = async () => {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      const supabase = getBrowserClient()
-      const { data, error } = await supabase.from("communities").select("branding").eq("id", communityId).single()
+      // In a real app, this would be an API call
+      // For now, we'll use mock data
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      // No changes to settings for now, just simulating a fetch
 
-      runInAction(() => {
-        this.setBrandingSettings(communityId, data?.branding || {})
-      })
-
-      return data?.branding || {}
+      return this.settings
     } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch branding settings")
-      })
-      return {}
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  updateBrandingSettings = async (communityId: string, settings: Partial<BrandingSettings>) => {
-    this.setLoading(true)
-    this.setError(null)
-
-    try {
-      const supabase = getBrowserClient()
-      const currentSettings = this.getBrandingSettings(communityId)
-      const updatedSettings = { ...currentSettings, ...settings }
-
-      const { data, error } = await supabase
-        .from("communities")
-        .update({ branding: updatedSettings })
-        .eq("id", communityId)
-        .select("branding")
-        .single()
-
-      if (error) throw error
-
-      runInAction(() => {
-        this.setBrandingSettings(communityId, data?.branding || {})
-      })
-
-      return data?.branding || {}
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to update branding settings")
-      })
+      this.setError(error.message || "Failed to fetch branding settings")
       return null
     } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
+      this.setLoading(false)
     }
   }
 
-  uploadBrandingAsset = async (communityId: string, file: File, type: "logo" | "banner" | "favicon") => {
+  updateBrandingSettings = async (settings: Partial<BrandingSettings>) => {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      const supabase = getBrowserClient()
-      const fileName = `community-${type}-${communityId}-${Date.now()}`
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("community-assets")
-        .upload(fileName, file)
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (uploadError) throw uploadError
-
-      const { data: urlData } = supabase.storage.from("community-assets").getPublicUrl(fileName)
-      const publicUrl = urlData.publicUrl
-
-      // Update branding settings with the new URL
-      const settings: Partial<BrandingSettings> = {}
-      if (type === "logo") {
-        settings.logo_url = publicUrl
-      } else if (type === "banner") {
-        settings.banner_url = publicUrl
-      } else if (type === "favicon") {
-        settings.favicon_url = publicUrl
-      }
-
-      await this.updateBrandingSettings(communityId, settings)
-
-      return publicUrl
+      this.setSettings(settings)
+      return true
     } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || `Failed to upload ${type}`)
-      })
-      return null
+      this.setError(error.message || "Failed to update branding settings")
+      return false
     } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
+      this.setLoading(false)
     }
-  }
-
-  // Computed properties
-  getBrandingSettings = (communityId: string) => {
-    return this.brandingSettings.get(communityId) || {}
   }
 }

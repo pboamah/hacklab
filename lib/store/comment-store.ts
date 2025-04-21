@@ -1,26 +1,23 @@
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase/client"
-import type { RootStore } from "./root-store"
-import { awardPoints, PointsCategory } from "@/lib/gamification"
+import type { RootStore } from "./index"
 
 export interface Comment {
   id: string
-  post_id: string
-  user_id: string
-  parent_id?: string
   content: string
-  created_at: string
-  updated_at?: string
-  user?: {
-    id: string
-    full_name: string
-    avatar_url?: string
-  }
+  authorId: string
+  authorName: string
+  authorAvatar?: string
+  parentId?: string
+  entityType: "post" | "event" | "hackathon" | "project" | "resource"
+  entityId: string
+  createdAt: string
+  updatedAt: string
+  reactions?: { [key: string]: number }
   replies?: Comment[]
 }
 
 export class CommentStore {
-  comments: Map<string, Comment[]> = new Map() // postId -> comments
+  comments: Record<string, Comment[]> = {} // entityId -> comments
   isLoading = false
   error: string | null = null
   rootStore: RootStore
@@ -33,6 +30,69 @@ export class CommentStore {
   }
 
   // Actions
+  setComments = (entityId: string, comments: Comment[]) => {
+    this.comments[entityId] = comments
+  }
+
+  addComment = (entityId: string, comment: Comment) => {
+    if (!this.comments[entityId]) {
+      this.comments[entityId] = []
+    }
+
+    if (comment.parentId) {
+      // Add as a reply to parent comment
+      this.comments[entityId] = this.comments[entityId].map((c) => {
+        if (c.id === comment.parentId) {
+          return {
+            ...c,
+            replies: [...(c.replies || []), comment],
+          }
+        }
+        return c
+      })
+    } else {
+      // Add as a top-level comment
+      this.comments[entityId].push(comment)
+    }
+  }
+
+  updateComment = (entityId: string, commentId: string, content: string) => {
+    this.comments[entityId] = this.comments[entityId].map((c) => {
+      if (c.id === commentId) {
+        return { ...c, content, updatedAt: new Date().toISOString() }
+      }
+
+      // Check in replies
+      if (c.replies) {
+        const updatedReplies = c.replies.map((r) => {
+          if (r.id === commentId) {
+            return { ...r, content, updatedAt: new Date().toISOString() }
+          }
+          return r
+        })
+        return { ...c, replies: updatedReplies }
+      }
+
+      return c
+    })
+  }
+
+  deleteComment = (entityId: string, commentId: string) => {
+    // Remove top-level comment
+    this.comments[entityId] = this.comments[entityId].filter((c) => c.id !== commentId)
+
+    // Or remove from replies
+    this.comments[entityId] = this.comments[entityId].map((c) => {
+      if (c.replies) {
+        return {
+          ...c,
+          replies: c.replies.filter((r) => r.id !== commentId),
+        }
+      }
+      return c
+    })
+  }
+
   setLoading = (loading: boolean) => {
     this.isLoading = loading
   }
@@ -41,58 +101,63 @@ export class CommentStore {
     this.error = error
   }
 
-  setComments = (postId: string, comments: Comment[]) => {
-    this.comments.set(postId, comments)
-  }
-
   // Async actions
-  fetchComments = async (postId: string) => {
+  fetchComments = async (entityType: string, entityId: string) => {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      const supabase = getBrowserClient()
-      const { data, error } = await supabase
-        .from("comments")
-        .select(`
-          *,
-          user:user_id (id, full_name, avatar_url)
-        `)
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
-
-      // Organize comments into a tree structure
-      const commentMap = new Map<string, Comment>()
-      const rootComments: Comment[] = []
-
-      // First pass: add all comments to the map
-      data.forEach((comment: any) => {
-        const formattedComment: Comment = {
-          ...comment,
-          replies: [],
-        }
-        commentMap.set(comment.id, formattedComment)
-      })
-
-      // Second pass: organize into tree structure
-      data.forEach((comment: any) => {
-        if (comment.parent_id) {
-          const parentComment = commentMap.get(comment.parent_id)
-          if (parentComment && parentComment.replies) {
-            parentComment.replies.push(commentMap.get(comment.id)!)
-          }
-        } else {
-          rootComments.push(commentMap.get(comment.id)!)
-        }
-      })
+      // Mock data
+      const mockComments: Comment[] = [
+        {
+          id: "1",
+          content: "This is a great post!",
+          authorId: "user1",
+          authorName: "John Doe",
+          authorAvatar: "/avatars/01.png",
+          entityType: "post" as const,
+          entityId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          reactions: { "👍": 5, "❤️": 2 },
+          replies: [
+            {
+              id: "2",
+              content: "I agree with you!",
+              authorId: "user2",
+              authorName: "Jane Smith",
+              authorAvatar: "/avatars/02.png",
+              parentId: "1",
+              entityType: "post" as const,
+              entityId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              reactions: { "👍": 1 },
+            },
+          ],
+        },
+        {
+          id: "3",
+          content: "Looking forward to more content like this.",
+          authorId: "user3",
+          authorName: "Bob Johnson",
+          authorAvatar: "/avatars/03.png",
+          entityType: "post" as const,
+          entityId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          reactions: { "👍": 3 },
+        },
+      ]
 
       runInAction(() => {
-        this.setComments(postId, rootComments)
+        this.setComments(entityId, mockComments)
       })
 
-      return rootComments
+      return mockComments
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to fetch comments")
@@ -105,58 +170,36 @@ export class CommentStore {
     }
   }
 
-  addComment = async (postId: string, content: string, parentId?: string) => {
-    if (!this.rootStore.userStore.currentUser || !content.trim()) return null
-
+  createComment = async (entityType: string, entityId: string, content: string, parentId?: string) => {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      const supabase = getBrowserClient()
-      const userId = this.rootStore.userStore.currentUser.id
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      const newComment = {
-        post_id: postId,
-        user_id: userId,
-        parent_id: parentId || null,
-        content: content.trim(),
-        created_at: new Date().toISOString(),
-      }
-
-      const { data, error } = await supabase.from("comments").insert(newComment).select("*").single()
-
-      if (error) throw error
-
-      // Add user info to the comment
-      const enrichedComment: Comment = {
-        ...data,
-        user: {
-          id: userId,
-          full_name: this.rootStore.userStore.currentUser.full_name,
-          avatar_url: this.rootStore.userStore.currentUser.avatar_url,
-        },
-        replies: [],
+      const newComment: Comment = {
+        id: `comment-${Date.now()}`,
+        content,
+        authorId: "current-user",
+        authorName: "Current User",
+        authorAvatar: "/avatars/04.png",
+        parentId,
+        entityType: entityType as any,
+        entityId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reactions: {},
       }
 
       runInAction(() => {
-        const existingComments = this.getPostComments(postId)
-
-        if (parentId) {
-          // Add as a reply to a parent comment
-          const updatedComments = this.addReplyToComment(existingComments, parentId, enrichedComment)
-          this.setComments(postId, updatedComments)
-        } else {
-          // Add as a root comment
-          this.setComments(postId, [...existingComments, enrichedComment])
-        }
+        this.addComment(entityId, newComment)
       })
 
-      await awardPoints(userId, PointsCategory.COMMENT, `Commented on a post`)
-
-      return data
+      return newComment
     } catch (error: any) {
       runInAction(() => {
-        this.setError(error.message || "Failed to add comment")
+        this.setError(error.message || "Failed to create comment")
       })
       return null
     } finally {
@@ -166,47 +209,53 @@ export class CommentStore {
     }
   }
 
-  // Helper method to add a reply to a nested comment
-  private addReplyToComment = (comments: Comment[], parentId: string, newReply: Comment): Comment[] => {
-    return comments.map((comment) => {
-      if (comment.id === parentId) {
-        return {
-          ...comment,
-          replies: [...(comment.replies || []), newReply],
-        }
-      } else if (comment.replies && comment.replies.length > 0) {
-        return {
-          ...comment,
-          replies: this.addReplyToComment(comment.replies, parentId, newReply),
-        }
-      }
-      return comment
-    })
+  updateCommentContent = async (entityId: string, commentId: string, content: string) => {
+    this.setLoading(true)
+    this.setError(null)
+
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      runInAction(() => {
+        this.updateComment(entityId, commentId, content)
+      })
+
+      return true
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to update comment")
+      })
+      return false
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
+    }
   }
 
-  // Computed properties
-  getPostComments = (postId: string) => {
-    return this.comments.get(postId) || []
-  }
+  removeComment = async (entityId: string, commentId: string) => {
+    this.setLoading(true)
+    this.setError(null)
 
-  getCommentCount = (postId: string) => {
-    const comments = this.getPostComments(postId)
-    let count = comments.length
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-    // Count all nested replies
-    const countReplies = (replies?: Comment[]) => {
-      if (!replies) return 0
-      let replyCount = replies.length
-      for (const reply of replies) {
-        replyCount += countReplies(reply.replies)
-      }
-      return replyCount
+      runInAction(() => {
+        this.deleteComment(entityId, commentId)
+      })
+
+      return true
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to delete comment")
+      })
+      return false
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
     }
-
-    for (const comment of comments) {
-      count += countReplies(comment.replies)
-    }
-
-    return count
   }
 }

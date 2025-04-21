@@ -1,33 +1,65 @@
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase"
-import type { RootStore } from "./root-store"
+import type { RootStore } from "./index"
+
+export interface Skill {
+  id: string
+  name: string
+  level?: "beginner" | "intermediate" | "advanced" | "expert"
+}
+
+export interface SocialLink {
+  platform: string
+  url: string
+}
+
+export interface Education {
+  institution: string
+  degree: string
+  field: string
+  startDate: string
+  endDate?: string
+  current: boolean
+}
+
+export interface Experience {
+  company: string
+  position: string
+  description?: string
+  startDate: string
+  endDate?: string
+  current: boolean
+}
+
+export interface Project {
+  id: string
+  title: string
+  description: string
+  url?: string
+  imageUrl?: string
+  technologies: string[]
+  startDate: string
+  endDate?: string
+}
 
 export interface UserProfile {
-  id: string
-  full_name: string
-  username?: string
-  email?: string
-  avatar_url?: string
+  userId: string
   bio?: string
-  title?: string
+  headline?: string
   location?: string
-  current_job_role?: string
-  current_workplace?: string
-  favorite_programming_language?: string
-  favorite_tech_stack?: string
-  skills?: string[]
-  social?: {
-    website?: string
-    github?: string
-    twitter?: string
-    linkedin?: string
-  }
-  created_at?: string
-  updatedAt?: string
+  website?: string
+  skills: Skill[]
+  socialLinks: SocialLink[]
+  education: Education[]
+  experience: Experience[]
+  projects: Project[]
+  interests: string[]
+  availability: "available" | "limited" | "unavailable"
+  lookingFor?: string[]
 }
 
 export class ProfileStore {
-  profiles: Map<string, UserProfile> = new Map() // userId -> profile
+  profiles: Record<string, UserProfile> = {}
+  currentProfile: UserProfile | null = null
   isLoading = false
   error: string | null = null
   rootStore: RootStore
@@ -40,6 +72,34 @@ export class ProfileStore {
   }
 
   // Actions
+  setProfiles = (profiles: Record<string, UserProfile>) => {
+    this.profiles = profiles
+  }
+
+  setProfile = (userId: string, profile: UserProfile) => {
+    this.profiles[userId] = profile
+
+    // Update current profile if it's for the current user
+    if (this.rootStore.userStore.currentUser?.id === userId) {
+      this.currentProfile = profile
+    }
+  }
+
+  setCurrentProfile = (profile: UserProfile | null) => {
+    this.currentProfile = profile
+  }
+
+  updateProfile = (userId: string, profileData: Partial<UserProfile>) => {
+    if (this.profiles[userId]) {
+      this.profiles[userId] = { ...this.profiles[userId], ...profileData }
+
+      // Update current profile if it's for the current user
+      if (this.rootStore.userStore.currentUser?.id === userId) {
+        this.currentProfile = this.profiles[userId]
+      }
+    }
+  }
+
   setLoading = (loading: boolean) => {
     this.isLoading = loading
   }
@@ -48,26 +108,85 @@ export class ProfileStore {
     this.error = error
   }
 
-  setProfile = (userId: string, profile: UserProfile) => {
-    this.profiles.set(userId, profile)
-  }
-
   // Async actions
   fetchProfile = async (userId: string) => {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      const supabase = getBrowserClient()
-      const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).single()
+      // Check if we already have this profile cached
+      if (this.profiles[userId]) {
+        return this.profiles[userId]
+      }
 
-      if (error) throw error
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Mock data
+      const mockProfile: UserProfile = {
+        userId,
+        bio: "Software developer with a passion for building community tools and platforms.",
+        headline: "Full Stack Developer | Hackathon Enthusiast",
+        location: "San Francisco, CA",
+        website: "https://example.com",
+        skills: [
+          { id: "1", name: "JavaScript", level: "expert" },
+          { id: "2", name: "React", level: "advanced" },
+          { id: "3", name: "Node.js", level: "intermediate" },
+          { id: "4", name: "TypeScript", level: "advanced" },
+        ],
+        socialLinks: [
+          { platform: "github", url: "https://github.com/username" },
+          { platform: "twitter", url: "https://twitter.com/username" },
+          { platform: "linkedin", url: "https://linkedin.com/in/username" },
+        ],
+        education: [
+          {
+            institution: "University of Technology",
+            degree: "Bachelor's",
+            field: "Computer Science",
+            startDate: "2016-09-01",
+            endDate: "2020-05-31",
+            current: false,
+          },
+        ],
+        experience: [
+          {
+            company: "Tech Startup",
+            position: "Senior Developer",
+            description: "Leading development of community platform features",
+            startDate: "2020-06-01",
+            current: true,
+          },
+          {
+            company: "Web Agency",
+            position: "Junior Developer",
+            description: "Worked on client websites and applications",
+            startDate: "2018-01-01",
+            endDate: "2020-05-31",
+            current: false,
+          },
+        ],
+        projects: [
+          {
+            id: "1",
+            title: "Community Platform",
+            description: "Open-source platform for building communities",
+            url: "https://github.com/username/community-platform",
+            technologies: ["React", "Node.js", "PostgreSQL"],
+            startDate: "2021-01-01",
+          },
+        ],
+        interests: ["Open Source", "Hackathons", "Web Development", "AI"],
+        availability: "limited",
+        lookingFor: ["Collaboration", "Mentorship", "Hackathon Team"],
+      }
 
       runInAction(() => {
-        this.setProfile(userId, data)
+        this.setProfile(userId, mockProfile)
       })
 
-      return data
+      return mockProfile
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to fetch profile")
@@ -80,60 +199,40 @@ export class ProfileStore {
     }
   }
 
-  updateProfile = async (userId: string, updates: Partial<UserProfile>) => {
+  updateUserProfile = async (userId: string, profileData: Partial<UserProfile>) => {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      const supabase = getBrowserClient()
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      // Check if a profile already exists for the user
-      const { data: existingProfile, error: existingProfileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", userId)
-        .single()
-
-      if (existingProfileError && existingProfileError.code !== "PGRST116") {
-        // If there's an error other than "no data found", throw it
-        throw existingProfileError
+      // Get existing profile or create a new one
+      const existingProfile = this.profiles[userId] || {
+        userId,
+        bio: "",
+        skills: [],
+        socialLinks: [],
+        education: [],
+        experience: [],
+        projects: [],
+        interests: [],
+        availability: "available",
       }
 
-      if (!existingProfile) {
-        // If the profile doesn't exist, create a new one
-        const { data: newProfile, error: newProfileError } = await supabase
-          .from("profiles")
-          .insert({
-            user_id: userId,
-            ...updates,
-          })
-          .select()
-          .single()
+      // Merge the existing profile with the new data
+      const updatedProfile = { ...existingProfile, ...profileData }
 
-        if (newProfileError) throw newProfileError
+      runInAction(() => {
+        this.setProfile(userId, updatedProfile)
+      })
 
-        runInAction(() => {
-          this.setProfile(userId, newProfile)
-        })
-
-        return newProfile
-      } else {
-        // If the profile exists, update it
-        const { data, error } = await supabase.from("profiles").update(updates).eq("user_id", userId).select().single()
-
-        if (error) throw error
-
-        runInAction(() => {
-          this.setProfile(userId, data)
-        })
-
-        return data
-      }
+      return true
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to update profile")
       })
-      return null
+      return false
     } finally {
       runInAction(() => {
         this.setLoading(false)
@@ -141,29 +240,29 @@ export class ProfileStore {
     }
   }
 
-  uploadAvatar = async (userId: string, file: File) => {
+  addSkill = async (userId: string, skill: Skill) => {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      const supabase = getBrowserClient()
-      const fileName = `avatar-${userId}-${Date.now()}`
-      const { data: uploadData, error: uploadError } = await supabase.storage.from("avatars").upload(fileName, file)
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (uploadError) throw uploadError
+      const profile = this.profiles[userId]
+      if (!profile) throw new Error("Profile not found")
 
-      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName)
-      const publicUrl = urlData.publicUrl
+      const updatedSkills = [...profile.skills, skill]
 
-      // Update profile with the new avatar URL
-      await this.updateProfile(userId, { avatar_url: publicUrl })
+      runInAction(() => {
+        this.updateProfile(userId, { skills: updatedSkills })
+      })
 
-      return publicUrl
+      return true
     } catch (error: any) {
       runInAction(() => {
-        this.setError(error.message || "Failed to upload avatar")
+        this.setError(error.message || "Failed to add skill")
       })
-      return null
+      return false
     } finally {
       runInAction(() => {
         this.setLoading(false)
@@ -171,8 +270,33 @@ export class ProfileStore {
     }
   }
 
-  // Computed properties
-  getProfile = (userId: string) => {
-    return this.profiles.get(userId)
+  removeSkill = async (userId: string, skillId: string) => {
+    this.setLoading(true)
+    this.setError(null)
+
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const profile = this.profiles[userId]
+      if (!profile) throw new Error("Profile not found")
+
+      const updatedSkills = profile.skills.filter((s) => s.id !== skillId)
+
+      runInAction(() => {
+        this.updateProfile(userId, { skills: updatedSkills })
+      })
+
+      return true
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to remove skill")
+      })
+      return false
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
+    }
   }
 }

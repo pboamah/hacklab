@@ -1,87 +1,61 @@
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase"
-import type { RootStore } from "./root-store"
+import type { RootStore } from "./index"
 
-export interface Forum {
+export interface ForumCategory {
   id: string
   name: string
   description: string
-  community_id: string
-  created_at: string
-  updated_at: string
-  topic_count?: number
-  post_count?: number
-  last_activity?: string
-  is_archived?: boolean
-  is_private?: boolean
-  allowed_roles?: string[]
-  moderators?: string[]
-  is_subscribed?: boolean
+  slug: string
+  parentId?: string
+  order: number
+  threadCount: number
+  lastThreadId?: string
+  lastThreadTitle?: string
+  lastPostAt?: string
+  lastPostUserId?: string
+  lastPostUserName?: string
 }
 
-export interface ForumTopic {
+export interface ForumThread {
   id: string
   title: string
+  slug: string
+  categoryId: string
+  authorId: string
+  authorName: string
+  authorAvatar?: string
   content: string
-  forum_id: string
-  author_id: string
-  created_at: string
-  updated_at: string
-  is_pinned: boolean
-  is_locked: boolean
-  view_count: number
-  reply_count?: number
-  last_reply_at?: string
+  pinned: boolean
+  locked: boolean
+  postCount: number
+  viewCount: number
+  lastPostAt?: string
+  lastPostUserId?: string
+  lastPostUserName?: string
+  createdAt: string
+  updatedAt: string
   tags?: string[]
-  author?: any
-  is_subscribed?: boolean
 }
 
 export interface ForumPost {
   id: string
+  threadId: string
+  authorId: string
+  authorName: string
+  authorAvatar?: string
   content: string
-  topic_id: string
-  author_id: string
-  created_at: string
-  updated_at: string
-  is_solution: boolean
-  parent_id?: string
-  author?: any
-  reactions?: any[]
-  is_flagged?: boolean
-  flag_reason?: string
-  edit_history?: {
-    content: string
-    edited_at: string
-    edited_by: string
-  }[]
-}
-
-export interface ForumReport {
-  id: string
-  reporter_id: string
-  content_type: "topic" | "post"
-  content_id: string
-  reason: string
-  description?: string
-  status: "pending" | "reviewing" | "resolved" | "dismissed"
-  created_at: string
-  resolved_at?: string
-  resolved_by?: string
-  reporter?: any
-  content?: any
+  createdAt: string
+  updatedAt: string
+  isEdited: boolean
+  isDeleted: boolean
+  reactions?: { [key: string]: number }
 }
 
 export class ForumStore {
-  forums: Forum[] = []
-  communityForums: Record<string, Forum[]> = {}
-  currentForum: Forum | null = null
-  topics: Record<string, ForumTopic[]> = {} // forumId -> topics
-  currentTopic: ForumTopic | null = null
-  posts: Record<string, ForumPost[]> = {} // topicId -> posts
-  subscribedForums: Forum[] = []
-  subscribedTopics: ForumTopic[] = []
-  reports: ForumReport[] = []
+  categories: ForumCategory[] = []
+  threads: Record<string, ForumThread[]> = {} // categoryId -> threads
+  posts: Record<string, ForumPost[]> = {} // threadId -> posts
+  currentThread: ForumThread | null = null
   isLoading = false
   error: string | null = null
   rootStore: RootStore
@@ -94,49 +68,83 @@ export class ForumStore {
   }
 
   // Actions
-  setForums = (forums: Forum[]) => {
-    this.forums = forums
+  setCategories = (categories: ForumCategory[]) => {
+    this.categories = categories
   }
 
-  setCommunityForums = (communityId: string, forums: Forum[]) => {
-    this.communityForums = {
-      ...this.communityForums,
-      [communityId]: forums,
+  setThreads = (categoryId: string, threads: ForumThread[]) => {
+    this.threads[categoryId] = threads
+  }
+
+  setPosts = (threadId: string, posts: ForumPost[]) => {
+    this.posts[threadId] = posts
+  }
+
+  setCurrentThread = (thread: ForumThread | null) => {
+    this.currentThread = thread
+  }
+
+  addThread = (thread: ForumThread) => {
+    const { categoryId } = thread
+
+    if (!this.threads[categoryId]) {
+      this.threads[categoryId] = []
     }
+
+    this.threads[categoryId] = [thread, ...this.threads[categoryId]]
+
+    // Update category thread count
+    this.categories = this.categories.map((category) => {
+      if (category.id === categoryId) {
+        return {
+          ...category,
+          threadCount: category.threadCount + 1,
+          lastThreadId: thread.id,
+          lastThreadTitle: thread.title,
+          lastPostAt: thread.createdAt,
+          lastPostUserId: thread.authorId,
+          lastPostUserName: thread.authorName,
+        }
+      }
+      return category
+    })
   }
 
-  setCurrentForum = (forum: Forum | null) => {
-    this.currentForum = forum
-  }
+  addPost = (post: ForumPost) => {
+    const { threadId } = post
 
-  setTopics = (forumId: string, topics: ForumTopic[]) => {
-    this.topics = {
-      ...this.topics,
-      [forumId]: topics,
+    if (!this.posts[threadId]) {
+      this.posts[threadId] = []
     }
-  }
 
-  setCurrentTopic = (topic: ForumTopic | null) => {
-    this.currentTopic = topic
-  }
+    this.posts[threadId].push(post)
 
-  setPosts = (topicId: string, posts: ForumPost[]) => {
-    this.posts = {
-      ...this.posts,
-      [topicId]: posts,
+    // Update thread post count and last post info
+    if (this.currentThread && this.currentThread.id === threadId) {
+      this.currentThread = {
+        ...this.currentThread,
+        postCount: this.currentThread.postCount + 1,
+        lastPostAt: post.createdAt,
+        lastPostUserId: post.authorId,
+        lastPostUserName: post.authorName,
+      }
     }
-  }
 
-  setSubscribedForums = (forums: Forum[]) => {
-    this.subscribedForums = forums
-  }
-
-  setSubscribedTopics = (topics: ForumTopic[]) => {
-    this.subscribedTopics = topics
-  }
-
-  setReports = (reports: ForumReport[]) => {
-    this.reports = reports
+    // Update thread in category threads list
+    Object.keys(this.threads).forEach((categoryId) => {
+      this.threads[categoryId] = this.threads[categoryId].map((thread) => {
+        if (thread.id === threadId) {
+          return {
+            ...thread,
+            postCount: thread.postCount + 1,
+            lastPostAt: post.createdAt,
+            lastPostUserId: post.authorId,
+            lastPostUserName: post.authorName,
+          }
+        }
+        return thread
+      })
+    })
   }
 
   setLoading = (loading: boolean) => {
@@ -147,37 +155,66 @@ export class ForumStore {
     this.error = error
   }
 
-  // Computed values
-  getForumTopics = (forumId: string): ForumTopic[] => {
-    return this.topics[forumId] || []
-  }
-
-  getTopicPosts = (topicId: string): ForumPost[] => {
-    return this.posts[topicId] || []
-  }
-
-  getCommentCount = (postId: string) => {
-    return this.posts[postId]?.length || 0
-  }
-
   // Async actions
-  fetchForums = async () => {
+  fetchCategories = async () => {
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase.from("forums").select("*").order("created_at", { ascending: false })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      // Mock data
+      const mockCategories: ForumCategory[] = [
+        {
+          id: "1",
+          name: "General Discussion",
+          description: "General topics related to the platform",
+          slug: "general-discussion",
+          order: 1,
+          threadCount: 15,
+        },
+        {
+          id: "2",
+          name: "Hackathons",
+          description: "Discuss upcoming and past hackathons",
+          slug: "hackathons",
+          order: 2,
+          threadCount: 8,
+          lastThreadId: "thread-1",
+          lastThreadTitle: "Tips for first-time hackathon participants",
+          lastPostAt: new Date().toISOString(),
+          lastPostUserId: "1",
+          lastPostUserName: "John Doe",
+        },
+        {
+          id: "3",
+          name: "Projects",
+          description: "Share and discuss your projects",
+          slug: "projects",
+          order: 3,
+          threadCount: 12,
+        },
+        {
+          id: "4",
+          name: "Job Board",
+          description: "Job opportunities and career discussions",
+          slug: "job-board",
+          order: 4,
+          threadCount: 5,
+        },
+      ]
 
       runInAction(() => {
-        this.setForums(data || [])
+        this.setCategories(mockCategories)
       })
+
+      return mockCategories
     } catch (error: any) {
       runInAction(() => {
-        this.setError(error.message || "Failed to fetch forums")
+        this.setError(error.message || "Failed to fetch categories")
       })
+      return []
     } finally {
       runInAction(() => {
         this.setLoading(false)
@@ -185,27 +222,68 @@ export class ForumStore {
     }
   }
 
-  fetchCommunityForums = async (communityId: string) => {
+  fetchThreads = async (categoryId: string) => {
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase
-        .from("forums")
-        .select("*")
-        .eq("community_id", communityId)
-        .order("created_at", { ascending: false })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      // Mock data
+      const mockThreads: ForumThread[] = [
+        {
+          id: "thread-1",
+          title: "Tips for first-time hackathon participants",
+          slug: "tips-for-first-time-hackathon-participants",
+          categoryId,
+          authorId: "1",
+          authorName: "John Doe",
+          authorAvatar: "/avatars/01.png",
+          content: "Here are some tips for those participating in their first hackathon...",
+          pinned: true,
+          locked: false,
+          postCount: 12,
+          viewCount: 156,
+          lastPostAt: new Date().toISOString(),
+          lastPostUserId: "2",
+          lastPostUserName: "Jane Smith",
+          createdAt: new Date(Date.now() - 604800000).toISOString(), // 1 week ago
+          updatedAt: new Date().toISOString(),
+          tags: ["hackathon", "beginners", "tips"],
+        },
+        {
+          id: "thread-2",
+          title: "Looking for team members for upcoming hackathon",
+          slug: "looking-for-team-members-for-upcoming-hackathon",
+          categoryId,
+          authorId: "3",
+          authorName: "Bob Johnson",
+          authorAvatar: "/avatars/03.png",
+          content: "I'm looking for 2-3 team members for the upcoming hackathon...",
+          pinned: false,
+          locked: false,
+          postCount: 8,
+          viewCount: 89,
+          lastPostAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+          lastPostUserId: "4",
+          lastPostUserName: "Alice Williams",
+          createdAt: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
+          updatedAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+          tags: ["hackathon", "team-building"],
+        },
+      ]
 
       runInAction(() => {
-        this.setCommunityForums(communityId, data || [])
+        this.setThreads(categoryId, mockThreads)
       })
+
+      return mockThreads
     } catch (error: any) {
       runInAction(() => {
-        this.setError(error.message || "Failed to fetch community forums")
+        this.setError(error.message || "Failed to fetch threads")
       })
+      return []
     } finally {
       runInAction(() => {
         this.setLoading(false)
@@ -213,177 +291,60 @@ export class ForumStore {
     }
   }
 
-  fetchForumById = async (forumId: string) => {
+  fetchThread = async (threadId: string) => {
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase.from("forums").select("*").eq("id", forumId).single()
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      // Find thread in existing threads
+      let thread: ForumThread | undefined
 
-      runInAction(() => {
-        this.setCurrentForum(data)
+      Object.values(this.threads).forEach((threadsArray) => {
+        const found = threadsArray.find((t) => t.id === threadId)
+        if (found) thread = found
       })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch forum")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
 
-  fetchForumTopics = async (forumId: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
+      if (!thread) {
+        // Mock data if not found
+        thread = {
+          id: threadId,
+          title: "Tips for first-time hackathon participants",
+          slug: "tips-for-first-time-hackathon-participants",
+          categoryId: "2",
+          authorId: "1",
+          authorName: "John Doe",
+          authorAvatar: "/avatars/01.png",
+          content: "Here are some tips for those participating in their first hackathon...",
+          pinned: true,
+          locked: false,
+          postCount: 12,
+          viewCount: 156,
+          lastPostAt: new Date().toISOString(),
+          lastPostUserId: "2",
+          lastPostUserName: "Jane Smith",
+          createdAt: new Date(Date.now() - 604800000).toISOString(), // 1 week ago
+          updatedAt: new Date().toISOString(),
+          tags: ["hackathon", "beginners", "tips"],
+        }
+      }
 
-    try {
-      const { data, error } = await supabase
-        .from("forum_topics")
-        .select(`
-        *,
-        author:users!author_id(*)
-      `)
-        .eq("forum_id", forumId)
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
-
-      runInAction(() => {
-        this.setTopics(forumId, data || [])
-      })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch forum topics")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  fetchTopicById = async (topicId: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { data, error } = await supabase
-        .from("forum_topics")
-        .select(`
-        *,
-        author:users!author_id(*)
-      `)
-        .eq("id", topicId)
-        .single()
-
-      if (error) throw error
-
-      runInAction(() => {
-        this.setCurrentTopic(data)
-      })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch topic")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  fetchTopicPosts = async (topicId: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { data, error } = await supabase
-        .from("forum_posts")
-        .select(`
-        *,
-        author:users!author_id(*)
-      `)
-        .eq("topic_id", topicId)
-        .order("created_at", { ascending: true })
-
-      if (error) throw error
-
-      runInAction(() => {
-        this.setPosts(topicId, data || [])
-      })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch topic posts")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  createTopic = async (topicData: { title: string; content: string; forumId: string; isPinned: boolean }) => {
-    if (!this.rootStore.userStore.currentUser) return null
-
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { data, error } = await supabase
-        .from("forum_topics")
-        .insert({
-          title: topicData.title,
-          content: topicData.content,
-          forum_id: topicData.forumId,
-          author_id: this.rootStore.userStore.currentUser.id,
-          is_pinned: topicData.isPinned,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      const newTopic = {
-        ...data,
-        author: this.rootStore.userStore.currentUser,
+      // Increment view count
+      thread = {
+        ...thread,
+        viewCount: thread.viewCount + 1,
       }
 
       runInAction(() => {
-        // Update topics list
-        if (this.topics[topicData.forumId]) {
-          this.topics = {
-            ...this.topics,
-            [topicData.forumId]: [newTopic, ...this.topics[topicData.forumId]],
-          }
-        } else {
-          this.topics = {
-            ...this.topics,
-            [topicData.forumId]: [newTopic],
-          }
-        }
-
-        // Update forum topic count
-        if (this.currentForum?.id === topicData.forumId) {
-          this.currentForum = {
-            ...this.currentForum,
-            topic_count: (this.currentForum.topic_count || 0) + 1,
-          }
-        }
+        this.setCurrentThread(thread!)
       })
 
-      return data
+      return thread
     } catch (error: any) {
       runInAction(() => {
-        this.setError(error.message || "Failed to create topic")
+        this.setError(error.message || "Failed to fetch thread")
       })
       return null
     } finally {
@@ -393,113 +354,184 @@ export class ForumStore {
     }
   }
 
-  createPost = async (postData: { content: string; topicId: string; parentId?: string }) => {
+  fetchPosts = async (threadId: string) => {
+    this.setLoading(true)
+    this.setError(null)
+
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Mock data
+      const mockPosts: ForumPost[] = [
+        {
+          id: "post-1",
+          threadId,
+          authorId: "1",
+          authorName: "John Doe",
+          authorAvatar: "/avatars/01.png",
+          content:
+            "Here are some tips for those participating in their first hackathon:\n\n1. Don't try to learn a new technology during the hackathon\n2. Make sure to get enough sleep\n3. Plan your project scope carefully\n4. Network with other participants\n5. Have fun!",
+          createdAt: new Date(Date.now() - 604800000).toISOString(), // 1 week ago
+          updatedAt: new Date(Date.now() - 604800000).toISOString(),
+          isEdited: false,
+          isDeleted: false,
+          reactions: { "👍": 15, "❤️": 7 },
+        },
+        {
+          id: "post-2",
+          threadId,
+          authorId: "2",
+          authorName: "Jane Smith",
+          authorAvatar: "/avatars/02.png",
+          content: "Great tips! I'd also add that it's important to take breaks and stay hydrated during the event.",
+          createdAt: new Date(Date.now() - 518400000).toISOString(), // 6 days ago
+          updatedAt: new Date(Date.now() - 518400000).toISOString(),
+          isEdited: false,
+          isDeleted: false,
+          reactions: { "👍": 8 },
+        },
+        {
+          id: "post-3",
+          threadId,
+          authorId: "3",
+          authorName: "Bob Johnson",
+          authorAvatar: "/avatars/03.png",
+          content:
+            "I found that having a clear role for each team member helps a lot. Make sure everyone knows what they're responsible for.",
+          createdAt: new Date(Date.now() - 432000000).toISOString(), // 5 days ago
+          updatedAt: new Date(Date.now() - 432000000).toISOString(),
+          isEdited: false,
+          isDeleted: false,
+          reactions: { "👍": 10, "💡": 5 },
+        },
+      ]
+
+      runInAction(() => {
+        this.setPosts(threadId, mockPosts)
+      })
+
+      return mockPosts
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to fetch posts")
+      })
+      return []
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
+    }
+  }
+
+  createThread = async (categoryId: string, title: string, content: string, tags?: string[]) => {
     if (!this.rootStore.userStore.currentUser) return null
 
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase
-        .from("forum_posts")
-        .insert({
-          content: postData.content,
-          topic_id: postData.topicId,
-          author_id: this.rootStore.userStore.currentUser.id,
-          parent_id: postData.parentId,
-        })
-        .select()
-        .single()
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      const currentUser = this.rootStore.userStore.currentUser
+      const now = new Date().toISOString()
 
-      const newPost = {
-        ...data,
-        author: this.rootStore.userStore.currentUser,
+      const newThread: ForumThread = {
+        id: `thread-${Date.now()}`,
+        title,
+        slug: title
+          .toLowerCase()
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s+/g, "-"),
+        categoryId,
+        authorId: currentUser.id,
+        authorName: currentUser.fullName,
+        authorAvatar: currentUser.avatarUrl,
+        content,
+        pinned: false,
+        locked: false,
+        postCount: 1, // Initial post
+        viewCount: 0,
+        lastPostAt: now,
+        lastPostUserId: currentUser.id,
+        lastPostUserName: currentUser.fullName,
+        createdAt: now,
+        updatedAt: now,
+        tags,
+      }
+
+      // Create initial post
+      const initialPost: ForumPost = {
+        id: `post-${Date.now()}`,
+        threadId: newThread.id,
+        authorId: currentUser.id,
+        authorName: currentUser.fullName,
+        authorAvatar: currentUser.avatarUrl,
+        content,
+        createdAt: now,
+        updatedAt: now,
+        isEdited: false,
+        isDeleted: false,
+        reactions: {},
       }
 
       runInAction(() => {
-        // Update posts list
-        if (this.posts[postData.topicId]) {
-          this.posts = {
-            ...this.posts,
-            [postData.topicId]: [...this.posts[postData.topicId], newPost],
-          }
-        } else {
-          this.posts = {
-            ...this.posts,
-            [postData.topicId]: [newPost],
-          }
-        }
-
-        // Update reply counts
-        if (this.currentTopic) {
-          this.currentTopic = {
-            ...this.currentTopic,
-            reply_count: (this.currentTopic.reply_count || 0) + 1,
-          }
-        }
+        this.addThread(newThread)
+        this.setPosts(newThread.id, [initialPost])
+        this.setCurrentThread(newThread)
       })
 
-      return data
+      return newThread
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to create thread")
+      })
+      return null
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
+    }
+  }
+
+  createPost = async (threadId: string, content: string) => {
+    if (!this.rootStore.userStore.currentUser) return null
+
+    this.setLoading(true)
+    this.setError(null)
+
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const currentUser = this.rootStore.userStore.currentUser
+      const now = new Date().toISOString()
+
+      const newPost: ForumPost = {
+        id: `post-${Date.now()}`,
+        threadId,
+        authorId: currentUser.id,
+        authorName: currentUser.fullName,
+        authorAvatar: currentUser.avatarUrl,
+        content,
+        createdAt: now,
+        updatedAt: now,
+        isEdited: false,
+        isDeleted: false,
+        reactions: {},
+      }
+
+      runInAction(() => {
+        this.addPost(newPost)
+      })
+
+      return newPost
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to create post")
       })
       return null
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  markPostAsSolution = async (postId: string, topicId: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      // First, unmark any existing solution
-      const { error: clearError } = await supabase
-        .from("forum_posts")
-        .update({ is_solution: false })
-        .eq("topic_id", topicId)
-        .eq("is_solution", true)
-
-      if (clearError) throw clearError
-
-      // Then mark the new post as the solution
-      const { error } = await supabase.from("forum_posts").update({ is_solution: true }).eq("id", postId)
-
-      if (error) throw error
-
-      runInAction(() => {
-        // Update posts list
-        this.posts = {
-          ...this.posts,
-          [topicId]: this.posts[topicId].map((post) => ({
-            ...post,
-            is_solution: post.id === postId,
-          })),
-        }
-
-        // Update current topic if viewing
-        if (this.currentTopic?.id === topicId) {
-          this.currentTopic = {
-            ...this.currentTopic,
-            solution_id: postId,
-          }
-        }
-      })
-
-      return true
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to mark post as solution")
-      })
-      return false
     } finally {
       runInAction(() => {
         this.setLoading(false)

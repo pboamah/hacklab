@@ -1,6 +1,8 @@
+import type React from "react"
 import { makeAutoObservable, runInAction } from "mobx"
 import { getBrowserClient } from "@/lib/supabase"
 import type { RootStore } from "./root-store"
+import { Award, Medal, Trophy } from "lucide-react"
 
 export interface Badge {
   id: string
@@ -22,11 +24,10 @@ export interface UserBadge {
 
 export interface Achievement {
   id: string
-  user_id: string
-  type: string
-  points: number
+  name: string
   description: string
-  created_at: string
+  points: number
+  icon: React.ReactNode
 }
 
 export interface GamificationProfile {
@@ -53,12 +54,40 @@ export class GamificationStore {
   isLoading = false
   error: string | null = null
   rootStore: RootStore
+  points = 250
+  level = 2
+  achievements: Achievement[] = []
 
   constructor(rootStore: RootStore) {
     this.rootStore = rootStore
     makeAutoObservable(this, {
       rootStore: false,
     })
+
+    // Initialize with some achievements
+    this.achievements = [
+      {
+        id: "1",
+        name: "First Post",
+        description: "Created your first post",
+        points: 50,
+        icon: <Award className="h-5 w-5" />,
+      },
+      {
+        id: "2",
+        name: "Community Joiner",
+        description: "Joined 2 communities",
+        points: 100,
+        icon: <Medal className="h-5 w-5" />,
+      },
+      {
+        id: "3",
+        name: "Hackathon Participant",
+        description: "Participated in a hackathon",
+        points: 100,
+        icon: <Trophy className="h-5 w-5" />,
+      },
+    ]
   }
 
   // Actions
@@ -117,6 +146,16 @@ export class GamificationStore {
     const pointsNeededForNextLevel = 100 // Each level requires 100 points
 
     return (pointsInCurrentLevel / pointsNeededForNextLevel) * 100
+  }
+
+  addPoints(amount: number) {
+    this.points += amount
+    this.updateLevel()
+  }
+
+  private updateLevel() {
+    // Simple level calculation
+    this.level = Math.floor(this.points / 100) + 1
   }
 
   // Async actions

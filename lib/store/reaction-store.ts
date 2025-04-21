@@ -1,263 +1,137 @@
-"use client"
+import { makeAutoObservable, runInAction } from "mobx"
+import type { RootStore } from "./index"
 
-import { makeObservable, observable, action, runInAction } from "mobx"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Database } from "../../types/supabase"
-
-export type ReactionType = "like" | "love" | "laugh" | "wow" | "angry"
-
-interface Reaction {
+export interface Reaction {
   id: string
-  user_id: string
-  content_type: string
-  content_id: string
-  reaction_type: ReactionType
-  created_at: string
+  entityId: string
+  entityType: "post" | "comment" | "event" | "project"
+  userId: string
+  type: string // emoji or reaction type
+  createdAt: string
 }
 
-interface ReactionCount {
-  content_id: string
-  reaction_type: ReactionType
+export interface ReactionCount {
+  entityId: string
+  type: string
   count: number
-}
-
-interface ReactionState {
-  reactions: Record<string, Reaction[]>
-  reactionCounts: Record<string, ReactionCount[]>
-  loading: boolean
-  error: string | null
+  userReacted: boolean
 }
 
 export class ReactionStore {
-  state: ReactionState = {
-    reactions: {},
-    reactionCounts: {},
-    loading: false,
-    error: null,
-  }
+  reactions: Record<string, ReactionCount[]> = {} // entityId -> reaction counts
+  isLoading = false
+  error: string | null = null
+  rootStore: RootStore
 
-  constructor() {
-    makeObservable(this, {
-      state: observable,
-      fetchReactions: action,
-      fetchReactionCounts: action,
-      addReaction: action,
-      hasUserReacted: action,
-      getReactionCount: action,
-      getPostReactions: action,
-      getReactionCounts: action,
-      getTotalReactionCount: action,
-      getUserReaction: action,
-      resetError: action,
+  constructor(rootStore: RootStore) {
+    this.rootStore = rootStore
+    makeAutoObservable(this, {
+      rootStore: false,
     })
   }
 
-  // Fetch reactions for a specific content
-  async fetchReactions(contentType: string, contentId: string) {
-    this.state.loading = true
-    this.state.error = null
-
-    try {
-      const supabase = createClientComponentClient<Database>()
-      const { data, error } = await supabase
-        .from("reactions")
-        .select("*")
-        .eq("content_type", contentType)
-        .eq("content_id", contentId)
-
-      runInAction(() => {
-        if (error) {
-          this.state.error = error.message
-        } else {
-          this.state.reactions[contentId] = data || []
-        }
-        this.state.loading = false
-      })
-    } catch (error) {
-      runInAction(() => {
-        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
-        this.state.loading = false
-      })
-    }
+  // Actions
+  setReactions = (entityId: string, reactions: ReactionCount[]) => {
+    this.reactions[entityId] = reactions
   }
 
-  // Fetch reaction counts for a specific content
-  async fetchReactionCounts(contentType: string, contentId: string) {
-    this.state.loading = true
-    this.state.error = null
-
-    try {
-      const supabase = createClientComponentClient<Database>()
-      const { data, error } = await supabase
-        .from("reactions")
-        .select("reaction_type, count(*)")
-        .eq("content_type", contentType)
-        .eq("content_id", contentId)
-        .group("reaction_type")
-
-      runInAction(() => {
-        if (error) {
-          this.state.error = error.message
-        } else {
-          this.state.reactionCounts[contentId] = data.map((item) => ({
-            content_id: contentId,
-            reaction_type: item.reaction_type as ReactionType,
-            count: Number.parseInt(item.count as unknown as string, 10),
-          }))
-        }
-        this.state.loading = false
-      })
-    } catch (error) {
-      runInAction(() => {
-        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
-        this.state.loading = false
-      })
+  updateReaction = (entityId: string, type: string, increment: boolean) => {
+    if (!this.reactions[entityId]) {
+      this.reactions[entityId] = []
     }
-  }
 
-  // Add a reaction
-  async addReaction(reaction: Omit<Reaction, "id" | "created_at">) {
-    this.state.loading = true
-    this.state.error = null
+    const existingReaction = this.reactions[entityId].find((r) => r.type === type)
 
-    try {
-      const supabase = createClientComponentClient<Database>()
-
-      // Check if user already reacted with the same reaction type
-      const { data: existingReaction, error: checkError } = await supabase
-        .from("reactions")
-        .select("*")
-        .eq("content_type", reaction.content_type)
-        .eq("content_id", reaction.content_id)
-        .eq("user_id", reaction.user_id)
-        .eq("reaction_type", reaction.reaction_type)
-        .maybeSingle()
-
-      if (checkError) {
-        throw new Error(checkError.message)
-      }
-
-      // If reaction already exists, remove it (toggle behavior)
-      if (existingReaction) {
-        const { error: deleteError } = await supabase.from("reactions").delete().eq("id", existingReaction.id)
-
-        if (deleteError) {
-          throw new Error(deleteError.message)
-        }
-
-        runInAction(() => {
-          // Update local state
-          const contentReactions = this.state.reactions[reaction.content_id] || []
-          this.state.reactions[reaction.content_id] = contentReactions.filter((r) => r.id !== existingReaction.id)
-
-          // Update counts
-          const contentCounts = this.state.reactionCounts[reaction.content_id] || []
-          const countIndex = contentCounts.findIndex((c) => c.reaction_type === reaction.reaction_type)
-
-          if (countIndex !== -1) {
-            const newCount = contentCounts[countIndex].count - 1
-            if (newCount > 0) {
-              contentCounts[countIndex].count = newCount
-            } else {
-              contentCounts.splice(countIndex, 1)
-            }
-            this.state.reactionCounts[reaction.content_id] = contentCounts
+    if (existingReaction) {
+      // Update existing reaction
+      this.reactions[entityId] = this.reactions[entityId].map((r) => {
+        if (r.type === type) {
+          return {
+            ...r,
+            count: increment ? r.count + 1 : Math.max(0, r.count - 1),
+            userReacted: increment,
           }
-        })
-      } else {
-        // Add new reaction
-        const { data, error } = await supabase.from("reactions").insert([reaction]).select()
-
-        if (error) {
-          throw new Error(error.message)
         }
-
-        runInAction(() => {
-          // Update local state
-          const contentReactions = this.state.reactions[reaction.content_id] || []
-          this.state.reactions[reaction.content_id] = [...contentReactions, data[0]]
-
-          // Update counts
-          const contentCounts = this.state.reactionCounts[reaction.content_id] || []
-          const countIndex = contentCounts.findIndex((c) => c.reaction_type === reaction.reaction_type)
-
-          if (countIndex !== -1) {
-            contentCounts[countIndex].count += 1
-          } else {
-            contentCounts.push({
-              content_id: reaction.content_id,
-              reaction_type: reaction.reaction_type,
-              count: 1,
-            })
-          }
-          this.state.reactionCounts[reaction.content_id] = contentCounts
-        })
-      }
-
-      this.state.loading = false
-      return { success: true }
-    } catch (error) {
-      runInAction(() => {
-        this.state.error = error instanceof Error ? error.message : "Unknown error occurred"
-        this.state.loading = false
+        return r
       })
-      return { success: false, error }
+    } else if (increment) {
+      // Add new reaction type
+      this.reactions[entityId].push({
+        entityId,
+        type,
+        count: 1,
+        userReacted: true,
+      })
     }
   }
 
-  // Check if user has reacted with a specific reaction type
-  hasUserReacted(contentId: string, userId: string, reactionType: ReactionType): boolean {
-    const contentReactions = this.state.reactions[contentId] || []
-    return contentReactions.some((r) => r.user_id === userId && r.reaction_type === reactionType)
+  setLoading = (loading: boolean) => {
+    this.isLoading = loading
   }
 
-  // Get reaction count for a specific reaction type
-  getReactionCount(contentId: string, reactionType: ReactionType): number {
-    const contentCounts = this.state.reactionCounts[contentId] || []
-    const count = contentCounts.find((c) => c.reaction_type === reactionType)
-    return count ? count.count : 0
+  setError = (error: string | null) => {
+    this.error = error
   }
 
-  // Get all reactions for a post
-  getPostReactions(postId: string): Reaction[] {
-    return this.state.reactions[postId] || []
-  }
+  // Async actions
+  fetchReactions = async (entityType: string, entityId: string) => {
+    this.setLoading(true)
+    this.setError(null)
 
-  // Get reaction counts for a post
-  getReactionCounts(postId: string): Record<ReactionType, number> {
-    const counts: Record<ReactionType, number> = {
-      like: 0,
-      love: 0,
-      laugh: 0,
-      wow: 0,
-      angry: 0,
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Mock data
+      const mockReactions: ReactionCount[] = [
+        { entityId, type: "👍", count: 5, userReacted: false },
+        { entityId, type: "❤️", count: 3, userReacted: true },
+        { entityId, type: "🎉", count: 2, userReacted: false },
+        { entityId, type: "🚀", count: 1, userReacted: false },
+      ]
+
+      runInAction(() => {
+        this.setReactions(entityId, mockReactions)
+      })
+
+      return mockReactions
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to fetch reactions")
+      })
+      return []
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
     }
-
-    const reactionCounts = this.state.reactionCounts[postId] || []
-    reactionCounts.forEach((reaction) => {
-      counts[reaction.reaction_type] = reaction.count
-    })
-
-    return counts
   }
 
-  // Get total reaction count for a post
-  getTotalReactionCount(postId: string): number {
-    const reactionCounts = this.state.reactionCounts[postId] || []
-    return reactionCounts.reduce((total, reaction) => total + reaction.count, 0)
-  }
+  toggleReaction = async (entityType: string, entityId: string, type: string) => {
+    this.setLoading(true)
+    this.setError(null)
 
-  // Get user's reaction to a post
-  getUserReaction(postId: string, userId: string): Reaction | undefined {
-    const reactions = this.state.reactions[postId] || []
-    return reactions.find((reaction) => reaction.user_id === userId)
-  }
+    try {
+      // Check if user has already reacted with this type
+      const userReacted = this.reactions[entityId]?.find((r) => r.type === type)?.userReacted || false
 
-  // Reset error
-  resetError() {
-    this.state.error = null
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      runInAction(() => {
+        this.updateReaction(entityId, type, !userReacted)
+      })
+
+      return true
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to toggle reaction")
+      })
+      return false
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
+    }
   }
 }
-
-// Export the ReactionStore instance
-export const reactionStore = new ReactionStore()

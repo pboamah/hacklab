@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { observer } from "mobx-react-lite"
+import { useEffect } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +13,6 @@ import { useAuth } from "@/contexts/auth-context"
 import { PointsDisplay } from "@/components/gamification/points-display"
 import { AchievementsList } from "@/components/gamification/achievements-list"
 import { useCommunityStore } from "@/lib/store"
-import { useEffect } from "react"
 
 const DashboardPage = observer(() => {
   const { user } = useAuth()

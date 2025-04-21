@@ -18,6 +18,7 @@ import { ResourceStore } from "./resource-store"
 import { NotificationStore } from "./notification-store"
 import { enableStaticRendering } from "mobx-react-lite"
 import { configure } from "mobx"
+import { GamificationStore } from "./gamification-store"
 
 // Configure MobX
 configure({
@@ -31,7 +32,20 @@ configure({
 // Enable static rendering for server-side rendering
 enableStaticRendering(typeof window === "undefined")
 
-export class RootStore {
+export interface IRootStore {
+  communityStore: CommunityStore
+  gamificationStore: GamificationStore
+  brandingStore: BrandingStore
+  commentStore: CommentStore
+  userStore: UserStore
+  reactionStore: ReactionStore
+  profileStore: ProfileStore
+  messageStore: MessageStore
+  forumStore: ForumStore
+  groupStore: GroupStore
+}
+
+export class RootStore implements IRootStore {
   userStore: UserStore
   communityStore: CommunityStore
   eventStore: EventStore
@@ -49,6 +63,7 @@ export class RootStore {
   pollStore: PollStore
   resourceStore: ResourceStore
   notificationStore: NotificationStore
+  gamificationStore: GamificationStore
 
   constructor() {
     this.userStore = new UserStore(this)
@@ -68,6 +83,7 @@ export class RootStore {
     this.pollStore = new PollStore(this)
     this.resourceStore = new ResourceStore(this)
     this.notificationStore = new NotificationStore(this)
+    this.gamificationStore = new GamificationStore(this)
 
     makeAutoObservable(this)
   }
@@ -76,7 +92,7 @@ export class RootStore {
 const rootStore = new RootStore()
 
 export const useNotificationStore = () => rootStore.notificationStore
-export const useGamificationStore = () => rootStore.hackathonStore
+export const useGamificationStore = () => rootStore.gamificationStore
 export default rootStore
 export const useCommunityStore = () => rootStore.communityStore
 export const useEventStore = () => rootStore.eventStore

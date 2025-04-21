@@ -15,7 +15,7 @@ export interface Community {
   created_at: string
   updated_at: string
   created_by: string
-  memberCount?: number
+  memberCount: number
   members?: any[]
   isMember?: boolean
   isAdmin?: boolean
@@ -26,6 +26,7 @@ export class CommunityStore {
   myCommunities: Community[] = []
   currentCommunity: Community | null = null
   isLoading = false
+  loading = false
   error: string | null = null
   rootStore: RootStore
 
@@ -64,45 +65,69 @@ export class CommunityStore {
     const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase
-        .from("communities")
-        .select(`
-          *,
-          members:community_members(user_id, role),
-          created_by:users!created_by(id, full_name, avatar_url)
-        `)
-        .order("created_at", { ascending: false })
+      // In a real app, this would be an API call
+      // For now, we'll use mock data
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      this.communities = [
+        {
+          id: "1",
+          name: "JavaScript Developers",
+          description: "A community for JavaScript developers",
+          memberCount: 1200,
+        },
+        { id: "2", name: "React Enthusiasts", description: "For those who love React", memberCount: 850 },
+        { id: "3", name: "UI/UX Designers", description: "Share and learn UI/UX design", memberCount: 650 },
+      ]
+      this.myCommunities = [
+        {
+          id: "1",
+          name: "JavaScript Developers",
+          description: "A community for JavaScript developers",
+          memberCount: 1200,
+        },
+        { id: "2", name: "React Enthusiasts", description: "For those who love React", memberCount: 850 },
+      ]
+      // const { data, error } = await supabase
+      //   .from("communities")
+      //   .select(`
+      //     *,
+      //     members:community_members(user_id, role),
+      //     created_by:users!created_by(id, full_name, avatar_url)
+      //   `)
+      //   .order("created_at", { ascending: false })
 
-      if (error) throw error
+      // if (error) throw error
 
-      // Process communities
-      const processedCommunities = data.map((community) => {
-        const isMember = community.members
-          ? community.members.some((member: any) => member.user_id === this.rootStore.userStore.currentUser?.id)
-          : false
+      // // Process communities
+      // const processedCommunities = data.map((community) => {
+      //   const isMember = community.members
+      //     ? community.members.some((member: any) => member.user_id === this.rootStore.userStore.currentUser?.id)
+      //     : false
 
-        const isAdmin = community.members
-          ? community.members.some(
-              (member: any) =>
-                member.user_id === this.rootStore.userStore.currentUser?.id &&
-                (member.role === "admin" || member.role === "owner"),
-            )
-          : false
+      //   const isAdmin = community.members
+      //     ? community.members.some(
+      //         (member: any) =>
+      //           member.user_id === this.rootStore.userStore.currentUser?.id &&
+      //           (member.role === "admin" || member.role === "owner"),
+      //       )
+      //     : false
 
-        return {
-          ...community,
-          memberCount: community.members?.length || 0,
-          isMember,
-          isAdmin,
-        }
-      })
+      //   return {
+      //     ...community,
+      //     memberCount: community.members?.length || 0,
+      //     isMember,
+      //     isAdmin,
+      //   }
+      // })
 
-      // Filter my communities
-      const myCommunitiesData = processedCommunities.filter((community) => community.isMember)
+      // // Filter my communities
+      // const myCommunitiesData = processedCommunities.filter((community) => community.isMember)
 
       runInAction(() => {
-        this.setCommunities(processedCommunities)
-        this.setMyCommunities(myCommunitiesData)
+        // this.setCommunities(processedCommunities)
+        // this.setMyCommunities(myCommunitiesData)
+        this.setCommunities(this.communities)
+        this.setMyCommunities(this.myCommunities)
       })
     } catch (error: any) {
       runInAction(() => {
@@ -111,6 +136,7 @@ export class CommunityStore {
     } finally {
       runInAction(() => {
         this.setLoading(false)
+        this.loading = false
       })
     }
   }
@@ -350,4 +376,6 @@ export class CommunityStore {
       })
     }
   }
+
+  // Add other methods as needed
 }

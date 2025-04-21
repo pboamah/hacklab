@@ -1,41 +1,34 @@
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase"
-import type { RootStore } from "./root-store"
+import type { RootStore } from "./index"
 
 export interface Message {
   id: string
-  sender_id: string
-  receiver_id: string
+  conversationId: string
+  senderId: string
+  recipientId: string
   content: string
-  is_read: boolean
-  created_at: string
-  sender?: {
+  read: boolean
+  createdAt: string
+  attachments?: {
     id: string
-    full_name: string
-    avatar_url?: string
-  }
-  receiver?: {
-    id: string
-    full_name: string
-    avatar_url?: string
-  }
+    type: "image" | "file"
+    url: string
+    name: string
+  }[]
 }
 
 export interface Conversation {
-  user: {
-    id: string
-    full_name: string
-    avatar_url?: string
-    last_seen?: string
-  }
+  id: string
+  participants: string[]
   lastMessage?: Message
   unreadCount: number
+  updatedAt: string
 }
 
 export class MessageStore {
-  messages: Map<string, Message[]> = new Map() // userId -> messages
   conversations: Conversation[] = []
-  activeConversationUserId: string | null = null
+  messages: Record<string, Message[]> = {} // conversationId -> messages
+  currentConversation: string | null = null
   isLoading = false
   error: string | null = null
   rootStore: RootStore
@@ -48,11 +41,61 @@ export class MessageStore {
   }
 
   // Actions
-  setActiveConversation = (userId: string | null) => {
-    this.activeConversationUserId = userId
-    if (userId) {
-      this.fetchMessages(userId)
+  setConversations = (conversations: Conversation[]) => {
+    this.conversations = conversations
+  }
+
+  setMessages = (conversationId: string, messages: Message[]) => {
+    this.messages[conversationId] = messages
+  }
+
+  setCurrentConversation = (conversationId: string | null) => {
+    this.currentConversation = conversationId
+  }
+
+  addMessage = (message: Message) => {
+    const { conversationId } = message
+
+    if (!this.messages[conversationId]) {
+      this.messages[conversationId] = []
     }
+
+    this.messages[conversationId].push(message)
+
+    // Update conversation last message and unread count
+    this.conversations = this.conversations.map((conv) => {
+      if (conv.id === conversationId) {
+        return {
+          ...conv,
+          lastMessage: message,
+          updatedAt: message.createdAt,
+          unreadCount:
+            message.senderId !== this.rootStore.userStore.currentUser?.id ? conv.unreadCount + 1 : conv.unreadCount,
+        }
+      }
+      return conv
+    })
+  }
+
+  markConversationAsRead = (conversationId: string) => {
+    // Mark all messages as read
+    if (this.messages[conversationId]) {
+      this.messages[conversationId] = this.messages[conversationId].map((msg) => ({
+        ...msg,
+        read: true,
+      }))
+    }
+
+    // Update conversation unread count
+    this.conversations = this.conversations.map((conv) => {
+      if (conv.id === conversationId) {
+        return {
+          ...conv,
+          unreadCount: 0,
+        }
+      }
+      return conv
+    })
   }
 
   setLoading = (loading: boolean) => {
@@ -63,69 +106,63 @@ export class MessageStore {
     this.error = error
   }
 
+  // Computed
+  get totalUnreadCount() {
+    return this.conversations.reduce((total, conv) => total + conv.unreadCount, 0)
+  }
+
   // Async actions
   fetchConversations = async () => {
-    if (!this.rootStore.userStore.currentUser) return
+    if (!this.rootStore.userStore.currentUser) return []
 
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
-    const currentUserId = this.rootStore.userStore.currentUser.id
 
     try {
-      // Get all messages where the current user is either sender or receiver
-      const { data, error } = await supabase
-        .from("messages")
-        .select(`
-          id, 
-          content, 
-          created_at, 
-          is_read,
-          sender_id, 
-          sender:sender_id(id, full_name, avatar_url),
-          receiver_id, 
-          receiver:receiver_id(id, full_name, avatar_url)
-        `)
-        .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
-        .order("created_at", { ascending: false })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      const currentUserId = this.rootStore.userStore.currentUser.id
 
-      // Group messages by conversation partner
-      const conversationMap = new Map<string, { messages: Message[]; user: any }>()
-
-      data.forEach((message: any) => {
-        const partnerId = message.sender_id === currentUserId ? message.receiver_id : message.sender_id
-        const partner = message.sender_id === currentUserId ? message.receiver : message.sender
-
-        if (!conversationMap.has(partnerId)) {
-          conversationMap.set(partnerId, {
-            messages: [],
-            user: partner,
-          })
-        }
-
-        conversationMap.get(partnerId)!.messages.push(message)
-      })
-
-      // Transform to conversations array
-      const conversations: Conversation[] = []
-
-      conversationMap.forEach((value, key) => {
-        const unreadCount = value.messages.filter((m) => m.receiver_id === currentUserId && !m.is_read).length
-
-        conversations.push({
-          user: value.user,
-          lastMessage: value.messages[0],
-          unreadCount,
-        })
-      })
+      // Mock data
+      const mockConversations: Conversation[] = [
+        {
+          id: "1",
+          participants: [currentUserId, "2"],
+          lastMessage: {
+            id: "msg1",
+            conversationId: "1",
+            senderId: "2",
+            recipientId: currentUserId,
+            content: "Hey, how's it going?",
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          unreadCount: 1,
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: "2",
+          participants: [currentUserId, "3"],
+          lastMessage: {
+            id: "msg2",
+            conversationId: "2",
+            senderId: currentUserId,
+            recipientId: "3",
+            content: "Looking forward to the hackathon!",
+            read: true,
+            createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+          },
+          unreadCount: 0,
+          updatedAt: new Date(Date.now() - 86400000).toISOString(),
+        },
+      ]
 
       runInAction(() => {
-        this.conversations = conversations
+        this.setConversations(mockConversations)
       })
 
-      return conversations
+      return mockConversations
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to fetch conversations")
@@ -138,50 +175,58 @@ export class MessageStore {
     }
   }
 
-  fetchMessages = async (userId: string) => {
-    if (!this.rootStore.userStore.currentUser) return
-
+  fetchMessages = async (conversationId: string) => {
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
-    const currentUserId = this.rootStore.userStore.currentUser.id
 
     try {
-      const { data, error } = await supabase
-        .from("messages")
-        .select(`
-        id, 
-        content, 
-        created_at, 
-        is_read,
-        sender_id, 
-        sender:users!sender_id(id, full_name, avatar_url),
-        receiver_id, 
-        receiver:receiver_id(id, full_name, avatar_url)
-      `)
-        .or(
-          `and(sender_id.eq.${currentUserId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUserId})`,
-        )
-        .order("created_at", { ascending: true })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      const currentUserId = this.rootStore.userStore.currentUser?.id
+      const conversation = this.conversations.find((c) => c.id === conversationId)
+
+      if (!conversation) throw new Error("Conversation not found")
+
+      const otherParticipantId = conversation.participants.find((p) => p !== currentUserId)
+
+      // Mock data
+      const mockMessages: Message[] = [
+        {
+          id: "msg1",
+          conversationId,
+          senderId: otherParticipantId!,
+          recipientId: currentUserId!,
+          content: "Hey, how's it going?",
+          read: false,
+          createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+        },
+        {
+          id: "msg2",
+          conversationId,
+          senderId: currentUserId!,
+          recipientId: otherParticipantId!,
+          content: "Good! Working on the hackathon project. You?",
+          read: true,
+          createdAt: new Date(Date.now() - 3500000).toISOString(), // 58 minutes ago
+        },
+        {
+          id: "msg3",
+          conversationId,
+          senderId: otherParticipantId!,
+          recipientId: currentUserId!,
+          content: "Same here! Need any help with your project?",
+          read: false,
+          createdAt: new Date(Date.now() - 3400000).toISOString(), // 56 minutes ago
+        },
+      ]
 
       runInAction(() => {
-        this.messages.set(userId, data)
+        this.setMessages(conversationId, mockMessages)
+        this.setCurrentConversation(conversationId)
       })
 
-      // Mark messages as read
-      await supabase
-        .from("messages")
-        .update({ is_read: true })
-        .eq("sender_id", userId)
-        .eq("receiver_id", currentUserId)
-        .eq("is_read", false)
-
-      // Update unread count in conversations
-      this.updateUnreadCount(userId, 0)
-
-      return data
+      return mockMessages
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to fetch messages")
@@ -194,58 +239,44 @@ export class MessageStore {
     }
   }
 
-  sendMessage = async (receiverId: string, content: string) => {
-    if (!this.rootStore.userStore.currentUser || !content.trim()) return null
+  sendMessage = async (conversationId: string, content: string, attachments?: any[]) => {
+    if (!this.rootStore.userStore.currentUser) return null
 
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
-    const currentUserId = this.rootStore.userStore.currentUser.id
 
     try {
-      const newMessage = {
-        sender_id: currentUserId,
-        receiver_id: receiverId,
-        content: content.trim(),
-        is_read: false,
-        created_at: new Date().toISOString(),
-      }
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      const { data, error } = await supabase.from("messages").insert(newMessage).select("*").single()
+      const currentUserId = this.rootStore.userStore.currentUser.id
+      const conversation = this.conversations.find((c) => c.id === conversationId)
 
-      if (error) throw error
+      if (!conversation) throw new Error("Conversation not found")
 
-      // Add sender and receiver info
-      const enrichedMessage = {
-        ...data,
-        sender: {
-          id: currentUserId,
-          full_name: this.rootStore.userStore.currentUser.full_name,
-          avatar_url: this.rootStore.userStore.currentUser.avatar_url,
-        },
-        receiver: await this.rootStore.userStore.fetchUserById(receiverId),
+      const recipientId = conversation.participants.find((p) => p !== currentUserId)!
+
+      const newMessage: Message = {
+        id: `msg-${Date.now()}`,
+        conversationId,
+        senderId: currentUserId,
+        recipientId,
+        content,
+        read: false,
+        createdAt: new Date().toISOString(),
+        attachments: attachments?.map((att, i) => ({
+          id: `att-${Date.now()}-${i}`,
+          type: att.type,
+          url: att.url,
+          name: att.name,
+        })),
       }
 
       runInAction(() => {
-        // Update messages
-        const existingMessages = this.messages.get(receiverId) || []
-        this.messages.set(receiverId, [...existingMessages, enrichedMessage])
-
-        // Update conversations
-        const existingConversationIndex = this.conversations.findIndex((c) => c.user.id === receiverId)
-
-        if (existingConversationIndex >= 0) {
-          this.conversations[existingConversationIndex].lastMessage = enrichedMessage
-        } else {
-          this.conversations.push({
-            user: enrichedMessage.receiver,
-            lastMessage: enrichedMessage,
-            unreadCount: 0,
-          })
-        }
+        this.addMessage(newMessage)
       })
 
-      return data
+      return newMessage
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to send message")
@@ -258,25 +289,90 @@ export class MessageStore {
     }
   }
 
-  updateUnreadCount = (userId: string, count: number) => {
-    const conversationIndex = this.conversations.findIndex((c) => c.user.id === userId)
-    if (conversationIndex >= 0) {
-      this.conversations[conversationIndex].unreadCount = count
+  markAsRead = async (conversationId: string) => {
+    this.setLoading(true)
+    this.setError(null)
+
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      runInAction(() => {
+        this.markConversationAsRead(conversationId)
+      })
+
+      return true
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to mark messages as read")
+      })
+      return false
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
     }
   }
 
-  // Computed properties
-  get activeConversation() {
-    return this.activeConversationUserId
-      ? this.conversations.find((c) => c.user.id === this.activeConversationUserId) || null
-      : null
-  }
+  createConversation = async (participantId: string, initialMessage: string) => {
+    if (!this.rootStore.userStore.currentUser) return null
 
-  get activeMessages() {
-    return this.activeConversationUserId ? this.messages.get(this.activeConversationUserId) || [] : []
-  }
+    this.setLoading(true)
+    this.setError(null)
 
-  get totalUnreadCount() {
-    return this.conversations.reduce((total, conversation) => total + conversation.unreadCount, 0)
+    try {
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const currentUserId = this.rootStore.userStore.currentUser.id
+
+      // Check if conversation already exists
+      const existingConversation = this.conversations.find(
+        (c) => c.participants.includes(currentUserId) && c.participants.includes(participantId),
+      )
+
+      if (existingConversation) {
+        // Send message to existing conversation
+        await this.sendMessage(existingConversation.id, initialMessage)
+        return existingConversation
+      }
+
+      // Create new conversation
+      const newConversationId = `conv-${Date.now()}`
+      const newMessage: Message = {
+        id: `msg-${Date.now()}`,
+        conversationId: newConversationId,
+        senderId: currentUserId,
+        recipientId: participantId,
+        content: initialMessage,
+        read: false,
+        createdAt: new Date().toISOString(),
+      }
+
+      const newConversation: Conversation = {
+        id: newConversationId,
+        participants: [currentUserId, participantId],
+        lastMessage: newMessage,
+        unreadCount: 0,
+        updatedAt: new Date().toISOString(),
+      }
+
+      runInAction(() => {
+        this.conversations = [newConversation, ...this.conversations]
+        this.messages[newConversationId] = [newMessage]
+        this.currentConversation = newConversationId
+      })
+
+      return newConversation
+    } catch (error: any) {
+      runInAction(() => {
+        this.setError(error.message || "Failed to create conversation")
+      })
+      return null
+    } finally {
+      runInAction(() => {
+        this.setLoading(false)
+      })
+    }
   }
 }

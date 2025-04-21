@@ -1,37 +1,28 @@
 import { makeAutoObservable, runInAction } from "mobx"
-import { getBrowserClient } from "@/lib/supabase"
-import type { RootStore } from "./root-store"
+import type { RootStore } from "./index"
 
 export interface Group {
   id: string
   name: string
   description: string
-  community_id?: string
-  created_at: string
-  updated_at: string
-  member_count: number
-  is_private: boolean
-  allowed_roles?: string[]
-  moderators?: string[]
-  is_subscribed?: boolean
-  image_url?: string
-}
-
-export interface GroupMember {
-  id: string
-  group_id: string
-  user_id: string
-  role: "member" | "moderator" | "admin"
-  joined_at: string
-  user?: any
+  imageUrl?: string
+  coverImage?: string
+  privacy: "public" | "private" | "secret"
+  category?: string
+  tags?: string[]
+  createdAt: string
+  updatedAt: string
+  createdBy: string
+  memberCount: number
+  members?: any[]
+  isMember?: boolean
+  isAdmin?: boolean
 }
 
 export class GroupStore {
   groups: Group[] = []
-  communityGroups: Record<string, Group[]> = {}
+  myGroups: Group[] = []
   currentGroup: Group | null = null
-  members: Record<string, GroupMember[]> = {} // groupId -> members
-  joinedGroups: Group[] = []
   isLoading = false
   error: string | null = null
   rootStore: RootStore
@@ -48,26 +39,12 @@ export class GroupStore {
     this.groups = groups
   }
 
-  setCommunityGroups = (communityId: string, groups: Group[]) => {
-    this.communityGroups = {
-      ...this.communityGroups,
-      [communityId]: groups,
-    }
+  setMyGroups = (groups: Group[]) => {
+    this.myGroups = groups
   }
 
   setCurrentGroup = (group: Group | null) => {
     this.currentGroup = group
-  }
-
-  setMembers = (groupId: string, members: GroupMember[]) => {
-    this.members = {
-      ...this.members,
-      [groupId]: members,
-    }
-  }
-
-  setJoinedGroups = (groups: Group[]) => {
-    this.joinedGroups = groups
   }
 
   setLoading = (loading: boolean) => {
@@ -78,33 +55,69 @@ export class GroupStore {
     this.error = error
   }
 
-  // Computed values
-  getGroupMembers = (groupId: string): GroupMember[] => {
-    return this.members[groupId] || []
-  }
-
-  isGroupMember = (groupId: string, userId: string): boolean => {
-    return this.getGroupMembers(groupId).some((member) => member.user_id === userId)
-  }
-
   // Async actions
   fetchGroups = async () => {
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase.from("groups").select("*").order("created_at", { ascending: false })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      // Mock data
+      const mockGroups: Group[] = [
+        {
+          id: "1",
+          name: "Frontend Developers",
+          description: "A group for frontend developers to share knowledge and resources",
+          privacy: "public",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: "1",
+          memberCount: 120,
+          isMember: true,
+          isAdmin: false,
+        },
+        {
+          id: "2",
+          name: "Backend Engineers",
+          description: "Discussions about backend technologies and best practices",
+          privacy: "public",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: "2",
+          memberCount: 85,
+          isMember: false,
+          isAdmin: false,
+        },
+        {
+          id: "3",
+          name: "DevOps Specialists",
+          description: "For those interested in DevOps, CI/CD, and infrastructure",
+          privacy: "public",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: "3",
+          memberCount: 65,
+          isMember: true,
+          isAdmin: true,
+        },
+      ]
+
+      // Filter my groups
+      const myGroupsData = mockGroups.filter((group) => group.isMember)
 
       runInAction(() => {
-        this.setGroups(data || [])
+        this.setGroups(mockGroups)
+        this.setMyGroups(myGroupsData)
       })
+
+      return mockGroups
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to fetch groups")
       })
+      return []
     } finally {
       runInAction(() => {
         this.setLoading(false)
@@ -112,51 +125,42 @@ export class GroupStore {
     }
   }
 
-  fetchCommunityGroups = async (communityId: string) => {
+  fetchGroupById = async (id: string) => {
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase
-        .from("groups")
-        .select("*")
-        .eq("community_id", communityId)
-        .order("created_at", { ascending: false })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      // Find in existing groups or create mock
+      let group = this.groups.find((g) => g.id === id)
 
-      runInAction(() => {
-        this.setCommunityGroups(communityId, data || [])
-      })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch community groups")
-      })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  fetchGroupById = async (groupId: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { data, error } = await supabase.from("groups").select("*").eq("id", groupId).single()
-
-      if (error) throw error
+      if (!group) {
+        group = {
+          id,
+          name: `Group ${id}`,
+          description: "This is a group description",
+          privacy: "public",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: "1",
+          memberCount: 50,
+          isMember: false,
+          isAdmin: false,
+        }
+      }
 
       runInAction(() => {
-        this.setCurrentGroup(data)
+        this.setCurrentGroup(group!)
       })
+
+      return group
     } catch (error: any) {
       runInAction(() => {
         this.setError(error.message || "Failed to fetch group")
       })
+      return null
     } finally {
       runInAction(() => {
         this.setLoading(false)
@@ -164,62 +168,47 @@ export class GroupStore {
     }
   }
 
-  fetchGroupMembers = async (groupId: string) => {
+  createGroup = async (groupData: Partial<Group>) => {
+    if (!this.rootStore.userStore.currentUser) return null
+
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { data, error } = await supabase
-        .from("group_members")
-        .select(`
-          *,
-          user:users!user_id(*)
-        `)
-        .eq("group_id", groupId)
-        .order("joined_at", { ascending: false })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
+      const currentUser = this.rootStore.userStore.currentUser
+
+      const newGroup: Group = {
+        id: `group-${Date.now()}`,
+        name: groupData.name || "New Group",
+        description: groupData.description || "",
+        imageUrl: groupData.imageUrl,
+        coverImage: groupData.coverImage,
+        privacy: groupData.privacy || "public",
+        category: groupData.category,
+        tags: groupData.tags,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: currentUser.id,
+        memberCount: 1,
+        isMember: true,
+        isAdmin: true,
+      }
 
       runInAction(() => {
-        this.setMembers(groupId, data || [])
+        this.groups = [newGroup, ...this.groups]
+        this.myGroups = [newGroup, ...this.myGroups]
+        this.currentGroup = newGroup
       })
+
+      return newGroup
     } catch (error: any) {
       runInAction(() => {
-        this.setError(error.message || "Failed to fetch group members")
+        this.setError(error.message || "Failed to create group")
       })
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  fetchJoinedGroups = async (userId: string) => {
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      const { data, error } = await supabase
-        .from("group_members")
-        .select(`
-          group:groups!group_id(*)
-        `)
-        .eq("user_id", userId)
-        .order("joined_at", { ascending: false })
-
-      if (error) throw error
-
-      const groups = data?.map((item) => item.group) || []
-
-      runInAction(() => {
-        this.setJoinedGroups(groups)
-      })
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch joined groups")
-      })
+      return null
     } finally {
       runInAction(() => {
         this.setLoading(false)
@@ -232,26 +221,39 @@ export class GroupStore {
 
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { error } = await supabase.from("group_members").insert({
-        group_id: groupId,
-        user_id: this.rootStore.userStore.currentUser.id,
-        role: "member",
-      })
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
-
-      // Update member count
-      if (this.currentGroup?.id === groupId) {
-        runInAction(() => {
-          this.currentGroup = {
-            ...this.currentGroup!,
-            member_count: this.currentGroup!.member_count + 1,
+      runInAction(() => {
+        // Update groups list
+        this.groups = this.groups.map((group) => {
+          if (group.id === groupId) {
+            return {
+              ...group,
+              memberCount: group.memberCount + 1,
+              isMember: true,
+            }
           }
+          return group
         })
-      }
+
+        // Add to my groups
+        const groupToAdd = this.groups.find((g) => g.id === groupId)
+        if (groupToAdd && !this.myGroups.some((g) => g.id === groupId)) {
+          this.myGroups = [...this.myGroups, { ...groupToAdd, isMember: true }]
+        }
+
+        // Update current group if viewing
+        if (this.currentGroup?.id === groupId) {
+          this.currentGroup = {
+            ...this.currentGroup,
+            memberCount: this.currentGroup.memberCount + 1,
+            isMember: true,
+          }
+        }
+      })
 
       return true
     } catch (error: any) {
@@ -271,26 +273,38 @@ export class GroupStore {
 
     this.setLoading(true)
     this.setError(null)
-    const supabase = getBrowserClient()
 
     try {
-      const { error } = await supabase
-        .from("group_members")
-        .delete()
-        .eq("group_id", groupId)
-        .eq("user_id", this.rootStore.userStore.currentUser.id)
+      // In a real app, this would be an API call
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
-      if (error) throw error
-
-      // Update member count
-      if (this.currentGroup?.id === groupId) {
-        runInAction(() => {
-          this.currentGroup = {
-            ...this.currentGroup!,
-            member_count: Math.max(0, this.currentGroup!.member_count - 1),
+      runInAction(() => {
+        // Update groups list
+        this.groups = this.groups.map((group) => {
+          if (group.id === groupId) {
+            return {
+              ...group,
+              memberCount: Math.max(group.memberCount - 1, 0),
+              isMember: false,
+              isAdmin: false,
+            }
           }
+          return group
         })
-      }
+
+        // Remove from my groups
+        this.myGroups = this.myGroups.filter((g) => g.id !== groupId)
+
+        // Update current group if viewing
+        if (this.currentGroup?.id === groupId) {
+          this.currentGroup = {
+            ...this.currentGroup,
+            memberCount: Math.max(this.currentGroup.memberCount - 1, 0),
+            isMember: false,
+            isAdmin: false,
+          }
+        }
+      })
 
       return true
     } catch (error: any) {
@@ -298,64 +312,6 @@ export class GroupStore {
         this.setError(error.message || "Failed to leave group")
       })
       return false
-    } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
-    }
-  }
-
-  createGroup = async (groupData: { name: string; description: string; communityId?: string; isPrivate: boolean }) => {
-    if (!this.rootStore.userStore.currentUser) return null
-
-    this.setLoading(true)
-    this.setError(null)
-    const supabase = getBrowserClient()
-
-    try {
-      // Create the group
-      const { data, error } = await supabase
-        .from("groups")
-        .insert({
-          name: groupData.name,
-          description: groupData.description,
-          community_id: groupData.communityId,
-          is_private: groupData.isPrivate,
-          member_count: 1, // Creator is the first member
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Add creator as admin
-      const { error: memberError } = await supabase.from("group_members").insert({
-        group_id: data.id,
-        user_id: this.rootStore.userStore.currentUser.id,
-        role: "admin",
-      })
-
-      if (memberError) throw memberError
-
-      runInAction(() => {
-        // Update groups list
-        this.groups = [data, ...this.groups]
-
-        // Update community groups if applicable
-        if (groupData.communityId && this.communityGroups[groupData.communityId]) {
-          this.communityGroups = {
-            ...this.communityGroups,
-            [groupData.communityId]: [data, ...this.communityGroups[groupData.communityId]],
-          }
-        }
-      })
-
-      return data
-    } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to create group")
-      })
-      return null
     } finally {
       runInAction(() => {
         this.setLoading(false)
