@@ -57,7 +57,7 @@ export const ForumList = observer(({ communityId }: ForumListProps) => {
     )
   }
 
-  if (forums.length === 0) {
+  if (!forumStore.isLoading && (!forums || forums.length === 0)) {
     return (
       <Card className="text-center p-8">
         <CardHeader>
@@ -80,45 +80,45 @@ export const ForumList = observer(({ communityId }: ForumListProps) => {
 
   return (
     <div className="space-y-4">
-      {forums.map((forum) => (
-        <Card key={forum.id}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl">
-                <Link href={`/forums/${forum.id}`} className="hover:underline">
-                  {forum.name}
-                </Link>
-              </CardTitle>
-              <Badge variant="outline">{forum.topic_count} topics</Badge>
-            </div>
-            <CardDescription>{forum.description}</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center">
-                <MessageSquare className="mr-1 h-4 w-4" />
-                {forum.post_count} posts
+      {forums &&
+        forums.map((forum) => (
+          <Card key={forum.id}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">
+                  <Link href={`/forums/${forum.id}`} className="hover:underline">
+                    {forum.name}
+                  </Link>
+                </CardTitle>
+                <Badge variant="outline">{forum.topic_count} topics</Badge>
               </div>
-              <div className="flex items-center">
-                <Users className="mr-1 h-4 w-4" />
-                {/* This would need to be added to the forum data */}
-                Active users
-              </div>
-              {forum.last_activity && (
+              <CardDescription>{forum.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center">
-                  <Clock className="mr-1 h-4 w-4" />
-                  Last activity {formatDistanceToNow(new Date(forum.last_activity), { addSuffix: true })}
+                  <MessageSquare className="mr-1 h-4 w-4" />
+                  {forum.post_count} posts
                 </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/forums/${forum.id}`}>View Forum</Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      ))}
+                <div className="flex items-center">
+                  <Users className="mr-1 h-4 w-4" />
+                  Active users
+                </div>
+                {forum.last_activity && (
+                  <div className="flex items-center">
+                    <Clock className="mr-1 h-4 w-4" />
+                    Last activity {formatDistanceToNow(new Date(forum.last_activity), { addSuffix: true })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/forums/${forum.id}`}>View Forum</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
     </div>
   )
 })

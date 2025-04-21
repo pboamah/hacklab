@@ -1,137 +1,124 @@
-import { makeAutoObservable, runInAction } from "mobx"
-import type { RootStore } from "./index"
+"use client"
 
-export interface Reaction {
+import { makeAutoObservable } from "mobx"
+
+export type ReactionType = "like" | "love" | "laugh" | "wow" | "angry"
+
+interface Reaction {
   id: string
-  entityId: string
-  entityType: "post" | "comment" | "event" | "project"
+  postId: string
   userId: string
-  type: string // emoji or reaction type
+  reactionType: ReactionType
   createdAt: string
 }
 
-export interface ReactionCount {
-  entityId: string
-  type: string
-  count: number
-  userReacted: boolean
-}
-
 export class ReactionStore {
-  reactions: Record<string, ReactionCount[]> = {} // entityId -> reaction counts
+  reactions: Reaction[] = []
   isLoading = false
   error: string | null = null
-  rootStore: RootStore
 
-  constructor(rootStore: RootStore) {
-    this.rootStore = rootStore
-    makeAutoObservable(this, {
-      rootStore: false,
-    })
+  constructor() {
+    makeAutoObservable(this)
   }
 
-  // Actions
-  setReactions = (entityId: string, reactions: ReactionCount[]) => {
-    this.reactions[entityId] = reactions
+  setReactions = (reactions: Reaction[]) => {
+    this.reactions = reactions
   }
 
-  updateReaction = (entityId: string, type: string, increment: boolean) => {
-    if (!this.reactions[entityId]) {
-      this.reactions[entityId] = []
-    }
-
-    const existingReaction = this.reactions[entityId].find((r) => r.type === type)
-
-    if (existingReaction) {
-      // Update existing reaction
-      this.reactions[entityId] = this.reactions[entityId].map((r) => {
-        if (r.type === type) {
-          return {
-            ...r,
-            count: increment ? r.count + 1 : Math.max(0, r.count - 1),
-            userReacted: increment,
-          }
-        }
-        return r
-      })
-    } else if (increment) {
-      // Add new reaction type
-      this.reactions[entityId].push({
-        entityId,
-        type,
-        count: 1,
-        userReacted: true,
-      })
-    }
-  }
-
-  setLoading = (loading: boolean) => {
-    this.isLoading = loading
+  setLoading = (isLoading: boolean) => {
+    this.isLoading = isLoading
   }
 
   setError = (error: string | null) => {
     this.error = error
   }
 
-  // Async actions
-  fetchReactions = async (entityType: string, entityId: string) => {
+  async fetchReactions(postId: string) {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      // In a real app, this would be an API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      // Mock data
-      const mockReactions: ReactionCount[] = [
-        { entityId, type: "👍", count: 5, userReacted: false },
-        { entityId, type: "❤️", count: 3, userReacted: true },
-        { entityId, type: "🎉", count: 2, userReacted: false },
-        { entityId, type: "🚀", count: 1, userReacted: false },
+      // Mock data for demo purposes
+      const mockReactions: Reaction[] = [
+        {
+          id: "1",
+          postId: postId,
+          userId: "user1",
+          reactionType: "like",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "2",
+          postId: postId,
+          userId: "user2",
+          reactionType: "love",
+          createdAt: new Date().toISOString(),
+        },
       ]
 
-      runInAction(() => {
-        this.setReactions(entityId, mockReactions)
-      })
-
-      return mockReactions
+      this.setReactions(mockReactions)
     } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to fetch reactions")
-      })
-      return []
+      this.setError(error.message || "Failed to fetch reactions")
     } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
+      this.setLoading(false)
     }
   }
 
-  toggleReaction = async (entityType: string, entityId: string, type: string) => {
+  async addReaction(postId: string, reactionType: ReactionType) {
     this.setLoading(true)
     this.setError(null)
 
     try {
-      // Check if user has already reacted with this type
-      const userReacted = this.reactions[entityId]?.find((r) => r.type === type)?.userReacted || false
+      // Mock implementation
+      const newReaction: Reaction = {
+        id: Date.now().toString(),
+        postId: postId,
+        userId: "current-user-id", // Replace with actual user ID
+        reactionType: reactionType,
+        createdAt: new Date().toISOString(),
+      }
 
-      // In a real app, this would be an API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      runInAction(() => {
-        this.updateReaction(entityId, type, !userReacted)
-      })
-
-      return true
+      this.reactions = [...this.reactions, newReaction]
     } catch (error: any) {
-      runInAction(() => {
-        this.setError(error.message || "Failed to toggle reaction")
-      })
-      return false
+      this.setError(error.message || "Failed to add reaction")
     } finally {
-      runInAction(() => {
-        this.setLoading(false)
-      })
+      this.setLoading(false)
     }
+  }
+
+  async removeReaction(postId: string, reactionType: ReactionType) {
+    this.setLoading(true)
+    this.setError(null)
+
+    try {
+      // Mock implementation
+      this.reactions = this.reactions.filter(
+        (reaction) => !(reaction.postId === postId && reaction.reactionType === reactionType),
+      )
+    } catch (error: any) {
+      this.setError(error.message || "Failed to remove reaction")
+    } finally {
+      this.setLoading(false)
+    }
+  }
+
+  getPostReactions(postId: string): Reaction[] {
+    return this.reactions.filter((reaction) => reaction.postId === postId)
+  }
+
+  getUserReaction(postId: string, userId: string): Reaction | undefined {
+    return this.reactions.find((reaction) => reaction.postId === postId && reaction.userId === userId)
+  }
+
+  getReactionCounts(postId: string): { [key in ReactionType]?: number } {
+    const counts: { [key in ReactionType]?: number } = {}
+    this.getPostReactions(postId).forEach((reaction) => {
+      counts[reaction.reactionType] = (counts[reaction.reactionType] || 0) + 1
+    })
+    return counts
+  }
+
+  getTotalReactionCount(postId: string): number {
+    return this.getPostReactions(postId).length
   }
 }
