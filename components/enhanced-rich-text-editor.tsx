@@ -400,6 +400,7 @@ export function EnhancedRichTextEditor({
           </TabsContent>
 
           <TabsContent value="preview" className="p-4 m-0 min-h-[200px] prose-sm max-w-none">
+            {/* Use a proper markdown library here */}
             {value ? (
               <div dangerouslySetInnerHTML={{ __html: renderMarkdown() }} />
             ) : (

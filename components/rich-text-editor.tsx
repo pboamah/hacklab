@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Bold, Italic, List, ListOrdered, Link, Image, AlignLeft, AlignCenter, AlignRight } from "lucide-react"
+import { Bold, Italic, List, ListOrdered, Link, ImageIcon, AlignLeft, AlignCenter, AlignRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -84,7 +84,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
           <Link className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" onClick={() => formatText("image")} className="h-8 w-8">
-          <Image className="h-4 w-4" />
+          <ImageIcon className="h-4 w-4" />
         </Button>
         <Separator orientation="vertical" className="mx-1 h-6" />
         <ToggleGroup type="single" defaultValue="left">
@@ -119,6 +119,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         </TabsContent>
 
         <TabsContent value="preview" className="p-4 m-0 min-h-[200px] prose-sm max-w-none">
+          {/* Use a proper markdown library here */}
           {value ? (
             <div dangerouslySetInnerHTML={{ __html: value.replace(/\n/g, "<br />") }} />
           ) : (
