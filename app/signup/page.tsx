@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { Github } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -12,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { getBrowserClient } from "@/lib/supabase"
-import { Github } from "lucide-react"
+import Link from "next/link"
 
 const signupSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -60,7 +61,7 @@ export default function SignupPage() {
           title: "Signup successful",
           description: "Please check your email to verify your account.",
         })
-        //router.push("/complete-profile");
+        router.push("/complete-profile")
       }
     } catch (error) {
       toast({
@@ -105,11 +106,11 @@ export default function SignupPage() {
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Sign Up</CardTitle>
-          <CardDescription>Create a new account to join our community.</CardDescription>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl">Create an account</CardTitle>
+          <CardDescription>Complete the form below to register.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -159,8 +160,13 @@ export default function SignupPage() {
           <div className="flex items-center justify-center mt-4">
             <Button variant="outline" type="button" onClick={handleGitHubSignIn} disabled={isLoading}>
               {isLoading ? "Signing in with Github..." : <Github className="mr-2 h-4 w-4" />}
-              Sign In with GitHub
+              Sign Up with GitHub
             </Button>
+          </div>
+          <div className="text-center mt-2">
+            <Link href="/login" className="text-sm text-muted-foreground hover:underline">
+              Already have an account? Log in
+            </Link>
           </div>
         </CardContent>
       </Card>
