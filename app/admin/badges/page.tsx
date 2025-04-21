@@ -282,7 +282,7 @@ const BadgesAdminPage = observer(() => {
                       name="points_value"
                       type="number"
                       min="0"
-                      value={formData.points_value}
+                      value={String(formData.points_value)}
                       onChange={handleInputChange}
                       required
                     />
