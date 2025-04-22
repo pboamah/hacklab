@@ -70,7 +70,13 @@ const BadgesAdminPage = observer(() => {
   useEffect(() => {
     let mounted = true
 
-    fetchBadges()
+    const load = async () => {
+      if (mounted) {
+        await fetchBadges()
+      }
+    }
+
+    load()
 
     return () => {
       mounted = false
