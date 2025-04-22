@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { getBrowserClient } from "@/lib/supabase"
+import { ClientOnly } from "@/lib/is-client-component"
 
 interface Badge {
   id: string
@@ -181,129 +182,133 @@ const BadgesAdminPage = observer(() => {
             </Button>
           </div>
 
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader>
-                    <div className="h-6 w-32 bg-muted rounded mb-2"></div>
-                    <div className="h-4 w-48 bg-muted rounded"></div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-4 w-full bg-muted rounded mb-2"></div>
-                    <div className="h-4 w-3/4 bg-muted rounded"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {badges.map((badge) => (
-                <Card key={badge.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{badge.name}</CardTitle>
-                        <CardDescription>{badge.points_value} points</CardDescription>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditBadge(badge)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteBadge(badge.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-4">
-                      <div className="flex-shrink-0">
-                        <div
-                          className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center"
-                          style={{
-                            backgroundImage: badge.image_url ? `url(${badge.image_url})` : undefined,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                          }}
-                        >
-                          {!badge.image_url && <span className="text-lg font-bold">{badge.name.substring(0, 2)}</span>}
+          <ClientOnly>
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardHeader>
+                      <div className="h-6 w-32 bg-muted rounded mb-2"></div>
+                      <div className="h-4 w-48 bg-muted rounded"></div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-4 w-full bg-muted rounded mb-2"></div>
+                      <div className="h-4 w-3/4 bg-muted rounded"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {badges.map((badge) => (
+                  <Card key={badge.id}>
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle>{badge.name}</CardTitle>
+                          <CardDescription>{badge.points_value} points</CardDescription>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditBadge(badge)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteBadge(badge.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">{badge.description}</p>
-                        <p className="text-xs">Requirement: {badge.requirement}</p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0">
+                          <div
+                            className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center"
+                            style={{
+                              backgroundImage: badge.image_url ? `url(${badge.image_url})` : undefined,
+                              backgroundSize: "cover",
+                              backgroundPosition: "center",
+                            }}
+                          >
+                            {!badge.image_url && (
+                              <span className="text-lg font-bold">{badge.name.substring(0, 2)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">{badge.description}</p>
+                          <p className="text-xs">Requirement: {badge.requirement}</p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{selectedBadge ? "Edit Badge" : "Create Badge"}</DialogTitle>
-                <DialogDescription>
-                  {selectedBadge ? "Update the badge details below." : "Fill in the details to create a new badge."}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{selectedBadge ? "Edit Badge" : "Create Badge"}</DialogTitle>
+                  <DialogDescription>
+                    {selectedBadge ? "Update the badge details below." : "Fill in the details to create a new badge."}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="requirement">Requirement</Label>
+                      <Input
+                        id="requirement"
+                        name="requirement"
+                        value={formData.requirement}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="points_value">Points Value</Label>
+                      <Input
+                        id="points_value"
+                        name="points_value"
+                        type="number"
+                        min="0"
+                        value={String(formData.points_value)}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="image_url">Image URL (optional)</Label>
+                      <Input
+                        id="image_url"
+                        name="image_url"
+                        value={formData.image_url}
+                        onChange={handleInputChange}
+                        placeholder="Leave blank to auto-generate"
+                      />
+                    </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      name="description"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="requirement">Requirement</Label>
-                    <Input
-                      id="requirement"
-                      name="requirement"
-                      value={formData.requirement}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="points_value">Points Value</Label>
-                    <Input
-                      id="points_value"
-                      name="points_value"
-                      type="number"
-                      min="0"
-                      value={String(formData.points_value)}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="image_url">Image URL (optional)</Label>
-                    <Input
-                      id="image_url"
-                      name="image_url"
-                      value={formData.image_url}
-                      onChange={handleInputChange}
-                      placeholder="Leave blank to auto-generate"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit">{selectedBadge ? "Update" : "Create"}</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <DialogFooter>
+                    <Button type="submit">{selectedBadge ? "Update" : "Create"}</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </ClientOnly>
         </div>
       </AdminLayout>
     </DashboardShell>
