@@ -94,7 +94,7 @@ export function ResponsiveHeader() {
               </nav>
             </SheetContent>
           </Sheet>
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
             <span className="font-bold text-xl">Community</span>
           </Link>
         </div>
@@ -112,7 +112,7 @@ export function ResponsiveHeader() {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/search">
               <Search className="h-5 w-5" />

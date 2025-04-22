@@ -20,7 +20,7 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
   return (
     <div className={cn("flex flex-col h-full", className)} {...props}>
       <div className="px-2 py-2">
-        <Link href="/" className="flex items-center pl-2">
+        <Link href="/" className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary">
           <span className="font-bold">Community Platform</span>
         </Link>
       </div>
@@ -33,7 +33,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
               variant={pathname?.startsWith("/events") ? "secondary" : "ghost"}
               className="w-full justify-start"
             >
-              <Link href="/events">
+              <Link
+                href="/events"
+                className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+              >
                 <CalendarDays className="mr-2 h-4 w-4" />
                 Events
               </Link>
@@ -43,7 +46,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
               variant={pathname?.startsWith("/communities") ? "secondary" : "ghost"}
               className="w-full justify-start"
             >
-              <Link href="/communities">
+              <Link
+                href="/communities"
+                className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+              >
                 <Users className="mr-2 h-4 w-4" />
                 Communities
               </Link>
@@ -53,7 +59,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
               variant={pathname?.startsWith("/resources") ? "secondary" : "ghost"}
               className="w-full justify-start"
             >
-              <Link href="/resources">
+              <Link
+                href="/resources"
+                className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+              >
                 <BookOpen className="mr-2 h-4 w-4" />
                 Resources
               </Link>
@@ -63,7 +72,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
               variant={pathname?.startsWith("/jobs") ? "secondary" : "ghost"}
               className="w-full justify-start"
             >
-              <Link href="/jobs">
+              <Link
+                href="/jobs"
+                className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+              >
                 <Briefcase className="mr-2 h-4 w-4" />
                 Jobs
               </Link>
@@ -73,7 +85,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
               variant={pathname?.startsWith("/hackathons") ? "secondary" : "ghost"}
               className="w-full justify-start"
             >
-              <Link href="/hackathons">
+              <Link
+                href="/hackathons"
+                className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+              >
                 <Trophy className="mr-2 h-4 w-4" />
                 Hackathons
               </Link>
@@ -89,7 +104,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
                 variant={pathname === "/messages" ? "secondary" : "ghost"}
                 className="w-full justify-start"
               >
-                <Link href="/messages">
+                <Link
+                  href="/messages"
+                  className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+                >
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Messages
                 </Link>
@@ -99,7 +117,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
                 variant={pathname === "/notifications" ? "secondary" : "ghost"}
                 className="w-full justify-start"
               >
-                <Link href="/notifications">
+                <Link
+                  href="/notifications"
+                  className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+                >
                   <Bell className="mr-2 h-4 w-4" />
                   Notifications
                 </Link>
@@ -109,7 +130,10 @@ export const MobileNav = observer(({ className, ...props }: MobileNavProps) => {
                 variant={pathname === "/gamification" ? "secondary" : "ghost"}
                 className="w-full justify-start"
               >
-                <Link href="/gamification">
+                <Link
+                  href="/gamification"
+                  className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary"
+                >
                   <Award className="mr-2 h-4 w-4" />
                   Gamification
                 </Link>
