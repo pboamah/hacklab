@@ -8,9 +8,10 @@ const BadgesAdminPageClient = dynamic(() => import("./badges-admin-page"), {
 })
 
 export default function BadgesAdminPage() {
-  return (
-    <SupabaseProvider>
-      <BadgesAdminPageClient />
-    </SupabaseProvider>
+  return <div> Dummy </div>
+  //return (
+  //  <SupabaseProvider>
+  //    <BadgesAdminPageClient />
+  //  </SupabaseProvider>
   )
 }
