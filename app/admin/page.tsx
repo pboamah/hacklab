@@ -1,5 +1,3 @@
-"use client"
-
 import Link from "next/link"
 import { Calendar, FileText, Settings, Users } from "lucide-react"
 
@@ -36,6 +34,10 @@ export default function AdminDashboardPage() {
             <Calendar className="mr-2 h-4 w-4" />
             Events
           </TabsTrigger>
+          {/* <TabsTrigger value="badges">
+           <Calendar className="mr-2 h-4 w-4" />
+           Badges
+         </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="analytics" className="space-y-4">
@@ -84,6 +86,17 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        {/* <TabsContent value="badges" className="space-y-4">
+         <Card>
+           <CardHeader>
+             <CardTitle>Badge Management</CardTitle>
+             <CardDescription>Manage badges and rewards</CardDescription>
+           </CardHeader>
+           <CardContent>
+             <p>Badge management tools will be displayed here.</p>
+           </CardContent>
+         </Card>
+       </TabsContent> */}
       </Tabs>
     </AdminLayout>
   )
