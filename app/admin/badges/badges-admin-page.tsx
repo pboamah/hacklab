@@ -2,8 +2,8 @@
 
 import type React from "react"
 
+import { useState, useEffect, useCallback } from "react"
 import { observer } from "mobx-react-lite"
-import { useState, useEffect } from "react"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { AdminLayout } from "@/components/admin-layout"
@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { getBrowserClient } from "@/lib/supabase"
+import { getBrowserClient, useSupabase } from "@/lib/supabase/client"
 
 interface Badge {
   id: string
@@ -47,15 +47,11 @@ const BadgesAdminPage = observer(() => {
     image_url: "",
   })
   const { toast } = useToast()
+  const { supabase } = useSupabase()
 
-  useEffect(() => {
-    fetchBadges()
-  }, [])
-
-  const fetchBadges = async () => {
+  const fetchBadges = useCallback(async () => {
     setIsLoading(true)
     try {
-      const supabase = getBrowserClient()
       const { data, error } = await supabase.from("badges").select("*").order("points_value", { ascending: true })
 
       if (error) throw error
@@ -69,7 +65,17 @@ const BadgesAdminPage = observer(() => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, toast])
+
+  useEffect(() => {
+    let mounted = true
+
+    fetchBadges()
+
+    return () => {
+      mounted = false
+    }
+  }, [fetchBadges])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -107,8 +113,6 @@ const BadgesAdminPage = observer(() => {
     e.preventDefault()
 
     try {
-      const supabase = getBrowserClient()
-
       if (selectedBadge) {
         // Update existing badge
         const { error } = await supabase
@@ -140,7 +144,7 @@ const BadgesAdminPage = observer(() => {
       }
 
       setIsDialogOpen(false)
-      fetchBadges()
+      await fetchBadges()
     } catch (error: any) {
       toast({
         title: "Error",
@@ -159,7 +163,7 @@ const BadgesAdminPage = observer(() => {
 
       if (error) throw error
       toast({ title: "Success", description: "Badge deleted successfully" })
-      fetchBadges()
+      await fetchBadges()
     } catch (error: any) {
       toast({
         title: "Error",
